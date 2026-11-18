@@ -59,3 +59,6 @@ body{padding:0;background:#fff}
 #modal .seg,#modal .btn{display:none!important}
 .rc{border:0;padding:0}
 }
+#auth{position:fixed;inset:0;background:var(--bg);z-index:20;display:none;align-items:center;justify-content:center;overflow:auto}
+.ab{width:100%;max-width:430px;padding:20px}
+.err{color:#8A2418;min-height:20px;margin:0 0 8px}

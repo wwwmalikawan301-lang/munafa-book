@@ -1,5 +1,5 @@
-const CACHE='munafa-v5';
-const FILES=['./','index.html','style.css','lang.js','app.js','auth.js','firebase-config.js','manifest.json','icon.svg'];
+const CACHE='munafa-v6';
+const FILES=['./','index.html','style.css','lang.js','app.js','auth.js','data.js','firebase-config.js','manifest.json','icon.svg'];
 const HOSTS=['www.gstatic.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)));

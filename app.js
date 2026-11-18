@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s);
 const fmt=n=>'Rs '+Math.round(n).toLocaleString('en-US');
-const S={lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:15,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:3200,cash:2800,ud:400,com:350,cost:2300,exp:150,bills:14}};
+const S={shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:15,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:3200,cash:2800,ud:400,com:350,cost:2300,exp:150,bills:14}};
 const P=[
 {id:1,n:'Pen Blue',cat:'Stationery',p:20,c:14,s:120,m:20,sold:40},
 {id:2,n:'Notebook 200p',cat:'Stationery',p:150,c:110,s:8,m:10,sold:12},
@@ -14,7 +14,7 @@ const P=[
 {id:10,n:'JazzCash',cat:'Services',p:0,c:0,com:1,sold:30},
 {id:11,n:'Easypaisa',cat:'Services',p:0,c:0,com:1,sold:22}
 ];
-const C=[{n:'Ali',bal:1200},{n:'Sara',bal:450}];
+const C=[{n:'Ali',bal:1200,ph:'',log:[]},{n:'Sara',bal:450,ph:'',log:[]}];
 const W=[5200,6100,4800,7300,5900,6600];
 const D=[['16 Nov',6600,1500],['15 Nov',5900,1300],['14 Nov',7300,1900],['13 Nov',4800,1000],['12 Nov',6100,1400],['11 Nov',5200,1200]];
 const I={
@@ -96,6 +96,7 @@ more(){
   <div class=seg><button class="btn ${S.lang==='ur'?'':'alt'}" onclick="setLang('ur')">اردو</button><button class="btn ${S.lang==='rm'?'':'alt'}" onclick="setLang('rm')">Roman Urdu</button><button class="btn ${S.lang==='en'?'':'alt'}" onclick="setLang('en')">English</button></div>
   <button class=row onclick="go('udhaar')"><span>${x.ukhata}</span><span class=tag>${C.length}</span></button>
   <button class=row onclick="toggleHide()"><span>${x.hide}</span><span class=tag>${S.hide?'ON':'OFF'}</span></button>
+  <button class=row onclick="setShop()"><span>${x.shop}</span><span class=tag>${S.shop}</span></button>
   <button class=row onclick="changePin()"><span>${x.chgpin}</span></button>
   <h2>${x.soon}</h2><p>${x.later}</p>`;
 }
@@ -154,44 +155,73 @@ function chg(k,d){
 }
 function payBtn(u){
   if(S.saving||!S.cart.length)return;
-  if(u){modal(`<h1>${t().ukhata}</h1><input id=un placeholder="${t().cust}"><div class=seg><button class="btn alt" onclick="closeM()">${t().cancel}</button><button class=btn onclick="udSave()">${t().ok}</button></div>`);return}
+  if(u){modal(`<h1>${t().ukhata}</h1><input id=un placeholder="${t().cust}"><input id=up type=tel inputmode=tel placeholder="${t().phone}"><div class=seg><button class="btn alt" onclick="closeM()">${t().cancel}</button><button class=btn onclick="udSave()">${t().ok}</button></div>`);return}
   finish('');
 }
 function udSave(){
   const n=$('#un').value.trim();
   if(!n){toast(t().cust);return}
-  finish(n);
+  finish(n,$('#up').value);
 }
-function addBal(n,a){
-  const c=C.find(z=>z.n.toLowerCase()===n.toLowerCase());
-  if(c)c.bal+=a;else C.push({n:n,bal:a});
+function addBal(n,a,ph,en){
+  let c=C.find(z=>z.n.toLowerCase()===n.toLowerCase());
+  if(!c){c={n:n,bal:0,ph:'',log:[]};C.push(c)}
+  c.bal+=a;
+  if(ph&&ph.trim())c.ph=ph.trim();
+  if(en)c.log.push(en);
+  return c;
 }
-function finish(name){
+function stamp(){const d=new Date();return d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function finish(name,phone){
   if(S.saving)return;
   S.saving=true;
-  const tot=total(),d=S.day;
+  const tot=total(),d=S.day,items=S.cart.map(x=>({n:x.p.n,q:x.q,pr:x.pr}));
+  const R={no:S.no++,date:stamp(),items:items,disc:S.disc,total:tot,name:name||'',phone:'',bal:0};
   S.cart.forEach(x=>{
     if(!x.p.svc&&!x.p.com)x.p.s-=x.q;
     x.p.sold+=x.q;d.cost+=x.p.c*x.q;
     if(x.p.com)d.com+=x.pr*x.q;
   });
   d.sales+=tot;d.bills++;
-  if(name){d.ud+=tot;addBal(name,tot)}else d.cash+=tot;
-  const no=S.no++;
-  S.cart=[];S.disc=0;S.saving=false;
-  closeM();toast(t().saved+' #'+no);render();
+  if(name){d.ud+=tot;const c=addBal(name,tot,phone,{no:R.no,date:R.date,items:items,total:tot});R.bal=c.bal;R.phone=c.ph}else d.cash+=tot;
+  S.cart=[];S.disc=0;S.saving=false;S.rc=R;
+  render();showRc();
+}
+function rcHtml(R){
+  const x=t();
+  return `<div id=rcpt class=rc><b>${S.shop}</b><div>#${R.no} - ${R.date}</div>${R.name?`<div>${R.name}${R.phone?' - '+R.phone:''}</div>`:''}<hr>${R.items.map(i=>`<div class=rl><span>${i.n} x${i.q}</span><span>${fmt(i.pr*i.q)}</span></div>`).join('')}<hr>${R.disc?`<div class=rl><span>${x.disc}</span><span>-${fmt(R.disc)}</span></div>`:''}<div class="rl big"><span>${x.total}</span><span>${fmt(R.total)}</span></div>${R.name?`<div class="rl big"><span>${x.rcBal}</span><span>${fmt(R.bal)}</span></div>`:''}<div>${x.thanks}</div></div>`;
+}
+function rcText(R){
+  const x=t(),l=R.items.map(i=>`${i.n} x${i.q} = ${fmt(i.pr*i.q)}`).join('\n');
+  return `*${S.shop}*\n#${R.no} - ${R.date}\n\n${l}\n\n${x.total}: ${fmt(R.total)}`+(R.name?`\n${x.rcBal}: ${fmt(R.bal)}\n${x.rmd}`:'')+`\n${x.thanks}`;
+}
+function waLink(ph,text){
+  let d=(ph||'').replace(/\D/g,'');
+  if(d.startsWith('0'))d='92'+d.slice(1);
+  return 'https://wa.me/'+d+'?text='+encodeURIComponent(text);
+}
+function sendWa(){window.open(waLink(S.rc.phone,rcText(S.rc)),'_blank')}
+function showRc(){
+  const x=t();
+  modal(rcHtml(S.rc)+`<div class=seg><button class=btn onclick="sendWa()">${x.wa}</button><button class="btn alt" onclick="window.print()">${x.prt}</button></div><button class="btn alt" onclick="closeM()">${x.done}</button>`);
+  toast(x.saved+' #'+S.rc.no);
 }
 function openNewUd(){
-  modal(`<h1>${t().newU}</h1><input id=nn placeholder="${t().cust}"><input id=na type=number inputmode=numeric placeholder="${t().amt}"><div class=seg><button class="btn alt" onclick="closeM()">${t().cancel}</button><button class=btn onclick="newUd()">${t().ok}</button></div>`);
+  const x=t();
+  modal(`<h1>${x.newU}</h1><input id=nn placeholder="${x.cust}"><input id=np type=tel inputmode=tel placeholder="${x.phone}"><input id=na type=number inputmode=numeric placeholder="${x.amt}"><div class=seg><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="newUd()">${x.ok}</button></div>`);
 }
 function newUd(){
   const n=$('#nn').value.trim(),a=+$('#na').value;
   if(!n||!a)return;
-  addBal(n,a);closeM();render();
+  addBal(n,a,$('#np').value,{no:'-',date:stamp(),items:[],total:a});closeM();render();
 }
 function openPay(i){
-  const c=C[i];
-  modal(`<h1>${c.n}: ${fmt(c.bal)}</h1><input id=pa type=number inputmode=numeric placeholder="${t().amt}"><div class=seg><button class="btn alt" onclick="closeM()">${t().cancel}</button><button class=btn onclick="payIn(${i})">${t().recv}</button></div>`);
+  const c=C[i],x=t();
+  modal(`<h1>${c.n}: ${fmt(c.bal)}</h1>${c.ph?`<p>${c.ph}</p>`:''}${c.log.map(g=>`<div class=row><span><small>${g.date}</small><br>${g.items.map(z=>z.n+' x'+z.q).join(', ')}</span><b>${fmt(g.total)}</b></div>`).join('')}<input id=pa type=number inputmode=numeric placeholder="${x.amt}"><div class=seg><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="payIn(${i})">${x.recv}</button></div><button class="btn alt" onclick="remind(${i})">${x.rcRem}</button>`);
+}
+function remind(i){
+  const c=C[i],x=t(),l=c.log.map(g=>`${g.date}: ${g.items.length?g.items.map(z=>z.n+' x'+z.q).join(', ')+' = ':''}${fmt(g.total)}`).join('\n');
+  window.open(waLink(c.ph,`*${S.shop}*\n${c.n}\n\n${l}\n\n${x.rcBal}: ${fmt(c.bal)}\n${x.rmd}\n${x.thanks}`),'_blank');
 }
 function payIn(i){
   const c=C[i],a=Math.min(+$('#pa').value,c.bal);
@@ -211,6 +241,7 @@ function addP(){
   P.push({id:Date.now(),n:n,cat:$('#ak').value.trim()||'General',p:p,c:+$('#ac').value||0,s:+$('#aq').value||0,m:5,sold:0,svc:$('#as').checked?1:0,com:cm?1:0});
   closeM();render();
 }
+function setShop(){const v=prompt(t().shop,S.shop);if(v&&v.trim()){S.shop=v.trim();localStorage.shop=S.shop;render()}}
 function setLang(l){S.lang=l;localStorage.lang=l;render()}
 function toggleHide(){S.hide=!S.hide;localStorage.hide=S.hide?'1':'0';render()}
 render();

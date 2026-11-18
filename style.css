@@ -33,3 +33,15 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .seg .btn{flex:1;padding:0 4px}
 .q{display:flex;gap:6px;align-items:center}
 .q button{width:44px;height:44px;border:1px solid var(--ln);border-radius:12px;background:#fff;font-size:18px;color:var(--tx)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.top b{font-size:16px;color:var(--g)}
+.ib{width:44px;height:44px;border:0;background:none;color:var(--g);display:inline-flex;align-items:center;justify-content:center}
+.chips{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px}
+.chip{min-height:44px;padding:0 14px;border:1px solid var(--ln);border-radius:99px;background:#fff;color:var(--tx);font:inherit;white-space:nowrap}
+.chip.on{background:var(--g);color:#fff;border-color:var(--g)}
+.lockbox{text-align:center;padding-top:40px}
+.dots{display:flex;justify-content:center;gap:14px;margin:20px 0 28px}
+.dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--g)}
+.dots i.f{background:var(--g)}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:12px;justify-content:center}
+.pad button{height:64px;border-radius:50%;border:1px solid var(--ln);background:#fff;font:inherit;font-size:22px;color:var(--tx)}

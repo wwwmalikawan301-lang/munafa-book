@@ -34,7 +34,7 @@ const hid=n=>S.hide?'Rs ****':fmt(n);
 const card=(l,v)=>`<div class=card><span>${l}</span><b>${v}</b></div>`;
 const sub=()=>S.cart.reduce((a,x)=>a+x.pr*x.q,0);
 const total=()=>Math.max(0,sub()-S.disc);
-const top=()=>`<div class=top><b>Munafa Book</b><span><button class=ib onclick="toggleHide()" aria-label="hide">${ic(S.hide?'eyeoff':'eye')}</button><button class=ib onclick="lockNow()" aria-label="lock">${ic('lock')}</button></span></div>`;
+const hdr=()=>`<div class=top><b>Munafa Book</b><span><button class=ib onclick="toggleHide()" aria-label="hide">${ic(S.hide?'eyeoff':'eye')}</button><button class=ib onclick="lockNow()" aria-label="lock">${ic('lock')}</button></span></div>`;
 
 function chips(){
   const cs=[...new Set(P.map(p=>p.cat))];
@@ -107,7 +107,7 @@ function render(){
   document.body.className=S.lang;
   if(S.lock){$('#view').innerHTML=lockView();$('#nav').style.display='none';return}
   $('#nav').style.display='flex';
-  $('#view').innerHTML=top()+V[S.tab]();
+  $('#view').innerHTML=hdr()+V[S.tab]();
   const x=t();
   $('#nav').innerHTML=['today','sale','stock','acc','more'].map(k=>`<button class="${S.tab===k||(k==='more'&&S.tab==='udhaar')?'on':''}" onclick="go('${k}')">${ic(k)}<span>${x[k]}</span></button>`).join('');
 }

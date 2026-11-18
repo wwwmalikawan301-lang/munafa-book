@@ -1,19 +1,7 @@
 const $=s=>document.querySelector(s);
 const fmt=n=>'Rs '+Math.round(n).toLocaleString('en-US');
-const S={shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:15,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:3200,cash:2800,ud:400,com:350,cost:2300,exp:150,bills:14}};
-const P=[
-{id:1,n:'Pen Blue',cat:'Stationery',p:20,c:14,s:120,m:20,sold:40},
-{id:2,n:'Notebook 200p',cat:'Stationery',p:150,c:110,s:8,m:10,sold:12},
-{id:3,n:'A4 Paper Rim',cat:'Stationery',p:1450,c:1300,s:12,m:5,sold:5},
-{id:4,n:'Charger Cable',cat:'Mobile',p:350,c:250,s:15,m:5,sold:6},
-{id:5,n:'Earphones',cat:'Mobile',p:600,c:420,s:4,m:5,sold:3},
-{id:6,n:'Chips',cat:'Food',p:50,c:38,s:40,m:10,sold:25},
-{id:7,n:'Cold Drink',cat:'Food',p:120,c:95,s:24,m:8,sold:18},
-{id:8,n:'Photocopy',cat:'Services',p:5,c:1,svc:1,sold:300},
-{id:9,n:'Lamination',cat:'Services',p:40,c:15,svc:1,sold:20},
-{id:10,n:'JazzCash',cat:'Services',p:0,c:0,com:1,sold:30},
-{id:11,n:'Easypaisa',cat:'Services',p:0,c:0,com:1,sold:22}
-];
+const S={loading:false,busy:false,shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:15,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:3200,cash:2800,ud:400,com:350,cost:2300,exp:150,bills:14}};
+const P=[];
 const C=[{n:'Ali',bal:1200,ph:'',log:[]},{n:'Sara',bal:450,ph:'',log:[]}];
 const W=[5200,6100,4800,7300,5900,6600];
 const D=[['16 Nov',6600,1500],['15 Nov',5900,1300],['14 Nov',7300,1900],['13 Nov',4800,1000],['12 Nov',6100,1400],['11 Nov',5200,1200]];
@@ -40,18 +28,21 @@ function chips(){
   const cs=[...new Set(P.map(p=>p.cat))];
   return `<div class=chips><button class="chip ${S.cat?'':'on'}" onclick="setCat('')">${t().all}</button>${cs.map(c=>`<button class="chip ${S.cat===c?'on':''}" onclick="setCat('${c}')">${c}</button>`).join('')}</div>`;
 }
-function plist(clickable){
-  const q=S.q.toLowerCase(),a=P.filter(p=>p.n.toLowerCase().includes(q)&&(!S.cat||p.cat===S.cat));
+const clean=v=>String(v||'').replace(/[<>"'`]/g,'').trim();
+function plist(sale){
+  if(S.loading)return `<p>${t().wait}</p>`;
+  const q=S.q.toLowerCase(),a=P.filter(p=>(p.n.toLowerCase().includes(q)||(p.bc&&p.bc===S.q))&&(!S.cat||p.cat===S.cat));
   if(!a.length)return `<p>${t().empty}</p>`;
-  return a.map(p=>{
+  return a.slice(0,100).map(p=>{
     const tag=p.com?`<span class=tag>${t().comTag}</span>`:p.svc?`<span class=tag>${t().svc}</span>`:(p.s<=0?`<span class="tag red">${t().out}</span>`:`<span class=tag>${p.s}</span>`);
-    const body=`<span>${p.n}<br><small>${p.com?'':fmt(p.p)}</small></span>${tag}`;
-    return clickable?`<button class=row onclick="addCart(${p.id})">${body}</button>`:`<div class=row>${body}</div>`;
-  }).join('');
+    const img=p.th?`<img class=th src="${p.th}" alt="">`:'';
+    const body=`<span class=pl>${img}<span>${p.n}<br><small>${p.com?'':fmt(p.p)+(p.unit?' / '+p.unit:'')}</small></span></span>${tag}`;
+    return `<button class=row onclick="${sale?`addCart('${p.id}')`:`openProd('${p.id}')`}">${body}</button>`;
+  }).join('')+(a.length>100?`<p>${t().moreItems}</p>`:'');
 }
 function cartHtml(){
   if(!S.cart.length)return `<p>${t().empty}</p>`;
-  return S.cart.map(x=>`<div class=row><span>${x.p.n}<br><small>${fmt(x.pr*x.q)}</small></span><span class=q><button onclick="chg(${x.k},-1)">-</button><b>${x.q}</b><button onclick="chg(${x.k},1)">+</button></span></div>`).join('');
+  return S.cart.map(x=>`<div class=row><span>${x.p.n}<br><small>${fmt(x.pr*x.q)}</small></span><span class=q><button onclick="chg('${x.k}',-1)">-</button><b>${x.q}</b><button onclick="chg('${x.k}',1)">+</button></span></div>`).join('');
 }
 function lockView(){
   const x=t(),m=S.lock,msg=m==='enter'?x.pin1:m==='set1'?x.pin2:x.pin3;
@@ -60,16 +51,16 @@ function lockView(){
 
 const V={
 today(){
-  const d=S.day,x=t(),low=P.filter(p=>!p.svc&&!p.com&&p.s<=p.m),tp=[...P].sort((a,b)=>b.sold-a.sold).slice(0,5);
+  const d=S.day,x=t(),low=P.filter(p=>!p.svc&&!p.com&&p.s<=p.m),tp=[...P].sort((a,b)=>b.sold-a.sold).slice(0,5).filter(p=>p.sold>0);
   const all=[...W,d.sales],mx=Math.max(...all,1),pr=d.sales-d.cost;
   return `<h1>${x.today}</h1><div class=grid>${card(x.sales,fmt(d.sales))}${card(x.cash,fmt(d.cash))}${card(x.udg,fmt(d.ud))}${card(x.comm,fmt(d.com))}${card(x.profit,hid(pr))}${card(x.exp,fmt(d.exp))}${card(x.net,hid(pr-d.exp))}${card(x.bills,d.bills)}</div>
   <h2>${x.week}</h2><div class=bars>${all.map(v=>`<i style="height:${Math.round(v/mx*100)}%"></i>`).join('')}</div>
   <h2>${x.low}</h2>${low.length?low.map(p=>`<div class=row><span>${p.n}</span><span class="tag red">${p.s}</span></div>`).join(''):`<p>${x.empty}</p>`}
-  <h2>${x.top}</h2>${tp.map(p=>`<div class=row><span>${p.n}</span><b>${p.sold}</b></div>`).join('')}`;
+  <h2>${x.top}</h2>${tp.length?tp.map(p=>`<div class=row><span>${p.n}</span><b>${p.sold}</b></div>`).join(''):`<p>${x.empty}</p>`}`;
 },
 sale(){
   const x=t(),e=S.cart.length?'':'disabled';
-  return `<h1>${x.sale}</h1><input placeholder="${x.search}" value="${S.q}" oninput="setQ(this.value)">${chips()}<div id=list>${plist(1)}</div>
+  return `<h1>${x.sale}</h1><p class=note>${x.demoSale}</p><input placeholder="${x.search}" value="${S.q}" oninput="setQ(this.value)">${chips()}<div id=list>${plist(1)}</div>
   <h2>${x.cart}</h2><div id=cart>${cartHtml()}</div>
   <input type=number inputmode=numeric placeholder="${x.disc}" value="${S.disc||''}" oninput="S.disc=+this.value||0;$('#tot').textContent=fmt(total())">
   <div class=row><span>${x.total}</span><b id=tot>${fmt(total())}</b></div>
@@ -134,7 +125,7 @@ function changePin(){S.buf='';S.lock='set1';render()}
 function addCart(id){
   const p=P.find(z=>z.id===id);
   if(p.com){
-    modal(`<h1>${p.n}</h1><input id=cm type=number inputmode=numeric placeholder="${t().comAsk}"><div class=seg><button class="btn alt" onclick="closeM()">${t().cancel}</button><button class=btn onclick="addCom(${id})">${t().ok}</button></div>`);
+    modal(`<h1>${p.n}</h1><input id=cm type=number inputmode=numeric placeholder="${t().comAsk}"><div class=seg><button class="btn alt" onclick="closeM()">${t().cancel}</button><button class=btn onclick="addCom('${id}')">${t().ok}</button></div>`);
     return;
   }
   const l=S.cart.find(z=>z.p.id===id&&!z.p.com),q=l?l.q:0;
@@ -145,7 +136,7 @@ function addCart(id){
 function addCom(id){
   const a=+$('#cm').value;
   if(!a)return;
-  S.cart.push({k:Date.now(),p:P.find(z=>z.id===id),q:1,pr:a});
+  S.cart.push({k:String(Date.now()),p:P.find(z=>z.id===id),q:1,pr:a});
   closeM();render();
 }
 function chg(k,d){
@@ -179,7 +170,6 @@ function finish(name,phone){
   const tot=total(),d=S.day,items=S.cart.map(x=>({n:x.p.n,q:x.q,pr:x.pr}));
   const R={no:S.no++,date:stamp(),items:items,disc:S.disc,total:tot,name:name||'',phone:'',bal:0};
   S.cart.forEach(x=>{
-    if(!x.p.svc&&!x.p.com)x.p.s-=x.q;
     x.p.sold+=x.q;d.cost+=x.p.c*x.q;
     if(x.p.com)d.com+=x.pr*x.q;
   });
@@ -229,18 +219,86 @@ function payIn(i){
   if(!a)return;
   c.bal-=a;S.day.cash+=a;closeM();render();
 }
+function shrink(f){
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{
+      const mk=(m,q)=>{const r=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*r);c.height=Math.round(im.height*r);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)};
+      URL.revokeObjectURL(im.src);
+      res({full:mk(400,.6),th:mk(96,.6)});
+    };
+    im.onerror=()=>res({});
+    im.src=URL.createObjectURL(f);
+  });
+}
+const gv=id=>($('#'+id)||{}).value||'';
+function cats(){return `<datalist id=cl>${[...new Set(P.map(p=>p.cat))].map(c=>`<option value="${c}">`).join('')}</datalist>`}
 function openAdd(){
   const x=t();
-  modal(`<h1>${x.add}</h1><input id=an placeholder="${x.name}"><input id=ak placeholder="${x.cat}"><input id=ap type=number inputmode=numeric placeholder="${x.price}"><input id=ac type=number inputmode=numeric placeholder="${x.cost}"><input id=aq type=number inputmode=numeric placeholder="${x.qty}">
-  <label class=row><span>${x.svc}</span><input id=as type=checkbox style="width:24px;min-height:24px;margin:0"></label>
-  <label class=row><span>${x.isCom}</span><input id=am type=checkbox style="width:24px;min-height:24px;margin:0"></label>
-  <div class=seg><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="addP()">${x.add}</button></div>`);
+  modal(`<h1>${x.add}</h1><input id=an placeholder="${x.name}"><input id=ap type=number inputmode=decimal placeholder="${x.price}"><input id=aq type=number inputmode=decimal placeholder="${x.qty}"><input id=af type=file accept="image/*" capture=environment>
+  <button class="btn alt" onclick="$('#mf').style.display='block';this.remove()">${x.moreF}</button>
+  <div id=mf style="display:none"><input id=ak list=cl placeholder="${x.cat}">${cats()}<input id=au placeholder="${x.unit}"><input id=ac type=number inputmode=decimal placeholder="${x.cost}"><input id=am2 type=number inputmode=numeric placeholder="${x.minStock}"><input id=ab placeholder="${x.barcode}"><select id=at><option value=item>${x.tItem}</option><option value=service>${x.svc}</option><option value=commission>${x.isCom}</option></select></div>
+  <div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="addP()">${x.add}</button></div>`);
 }
-function addP(){
-  const n=$('#an').value.trim(),p=+$('#ap').value,cm=$('#am').checked;
-  if(!n||(!p&&!cm)){toast(t().name+' / '+t().price);return}
-  P.push({id:Date.now(),n:n,cat:$('#ak').value.trim()||'General',p:p,c:+$('#ac').value||0,s:+$('#aq').value||0,m:5,sold:0,svc:$('#as').checked?1:0,com:cm?1:0});
-  closeM();render();
+async function addP(){
+  if(S.busy)return;
+  const n=clean(gv('an')),tp=gv('at')||'item',p=+gv('ap');
+  if(!n||(tp!=='commission'&&!(p>0))){toast(t().name+' / '+t().price);return}
+  S.busy=true;
+  const f=$('#af').files[0],ph=f?await shrink(f):{};
+  const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:tp==='commission'?0:p,cost:Math.max(0,+gv('ac')||0),stock:tp==='item'?Math.max(0,+gv('aq')||0):0,minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab')),type:tp,thumb:ph.th||'',full:ph.full||''};
+  S.busy=false;closeM();
+  DB.add(o).catch(()=>toast(t().authErr));
+  toast(t().added);
+}
+function openProd(id){
+  const p=P.find(z=>z.id===id),x=t(),ns=p.svc||p.com;
+  modal(`<h1>${p.n}</h1><div id=pp></div><p>${p.com?'':fmt(p.p)}${ns?'':' - '+p.s+' '+p.unit}</p>
+  ${ns?'':`<button class=btn onclick="openIn('${id}')">${x.stockIn}</button>`}
+  <button class="btn alt" style="margin-top:8px" onclick="openEdit('${id}')">${x.edit}</button>
+  <button class="btn alt" style="margin-top:8px" onclick="arch('${id}')">${x.del}</button>
+  <button class="btn alt" style="margin-top:8px" onclick="closeM()">${x.done}</button>`);
+  if(p.th)DB.photo(id).then(b=>{if(b&&$('#pp'))$('#pp').innerHTML=`<img class=big src="${b}" alt="">`}).catch(()=>{});
+}
+function openEdit(id){
+  const p=P.find(z=>z.id===id),x=t();
+  modal(`<h1>${x.edit}</h1><input id=an value="${p.n}"><input id=ak list=cl value="${p.cat}">${cats()}<input id=au value="${p.unit}" placeholder="${x.unit}"><input id=ap type=number inputmode=decimal value="${p.p}" placeholder="${x.price}"><input id=am2 type=number inputmode=numeric value="${p.m}" placeholder="${x.minStock}"><input id=ab value="${p.bc}" placeholder="${x.barcode}"><input id=af type=file accept="image/*" capture=environment>
+  <div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="editSave('${id}')">${x.ok}</button></div>`);
+}
+async function editSave(id){
+  if(S.busy)return;
+  const n=clean(gv('an'));
+  if(!n){toast(t().name);return}
+  S.busy=true;
+  const f=$('#af').files[0],ph=f?await shrink(f):{};
+  const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:Math.max(0,+gv('ap')||0),minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab'))};
+  if(ph.th){o.thumb=ph.th;o.full=ph.full}
+  S.busy=false;closeM();
+  DB.edit(id,o).catch(()=>toast(t().authErr));
+  toast(t().updated);
+}
+function arch(id){
+  if(!confirm(t().sure))return;
+  closeM();
+  DB.archive(id).catch(()=>toast(t().authErr));
+  toast(t().removed);
+}
+function newAvg(p,q,uc){const o=Math.max(0,p.s),n=o+q;return n>0?Math.round((o*p.c+q*uc)/n*100)/100:uc}
+function openIn(id){
+  const p=P.find(z=>z.id===id),x=t();
+  modal(`<h1>${p.n}</h1><p>${x.qty}: ${p.s} ${p.unit}</p><input id=iq type=number inputmode=decimal placeholder="${x.qty}" oninput="pvIn('${id}')"><input id=ic type=number inputmode=decimal value="${p.c||''}" placeholder="${x.cost}" oninput="pvIn('${id}')"><p id=pv></p>
+  <div class=seg><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="inSave('${id}')">${x.ok}</button></div>`);
+}
+function pvIn(id){
+  const p=P.find(z=>z.id===id),q=+gv('iq'),uc=+gv('ic');
+  $('#pv').textContent=q>0&&uc>=0?t().newAvg+': '+fmt(newAvg(p,q,uc)):'';
+}
+function inSave(id){
+  const p=P.find(z=>z.id===id),q=+gv('iq'),uc=+gv('ic');
+  if(!(q>0)||gv('ic')===''||!(uc>=0)){toast(t().qtyBad);return}
+  closeM();
+  DB.stockIn(p,q,uc,newAvg(p,q,uc)).catch(()=>toast(t().authErr));
+  toast(t().stockAdded);
 }
 function setShop(){const v=prompt(t().shop,S.shop);if(v&&v.trim()){S.shop=v.trim();localStorage.shop=S.shop;render()}}
 function setLang(l){S.lang=l;localStorage.lang=l;render()}

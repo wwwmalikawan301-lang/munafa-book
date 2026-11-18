@@ -45,3 +45,17 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .dots i.f{background:var(--g)}
 .pad{display:grid;grid-template-columns:repeat(3,72px);gap:12px;justify-content:center}
 .pad button{height:64px;border-radius:50%;border:1px solid var(--ln);background:#fff;font:inherit;font-size:22px;color:var(--tx)}
+#modal>div{max-height:90vh;overflow:auto}
+.rc{background:#fff;color:#000;font:13px/1.6 ui-monospace,Menlo,monospace;border:1px dashed var(--mu);padding:12px;margin-bottom:10px}
+.rc hr{border:0;border-top:1px dashed #000;margin:6px 0}
+.rl{display:flex;justify-content:space-between;gap:8px}
+.rl.big{font-weight:700;font-size:15px}
+@page{size:80mm auto;margin:3mm}
+@media print{
+#view,#nav,#toast{display:none!important}
+body{padding:0;background:#fff}
+#modal{position:static;background:none}
+#modal>div{position:static;max-height:none;padding:0}
+#modal .seg,#modal .btn{display:none!important}
+.rc{border:0;padding:0}
+}

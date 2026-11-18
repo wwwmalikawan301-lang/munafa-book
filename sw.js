@@ -1,4 +1,4 @@
-const CACHE='munafa-v2';
+const CACHE='munafa-v3';
 const FILES=['./','index.html','style.css','lang.js','app.js','manifest.json','icon.svg'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)));

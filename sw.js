@@ -1,5 +1,6 @@
-const CACHE='munafa-v4';
-const FILES=['./','index.html','style.css','lang.js','app.js','manifest.json','icon.svg'];
+const CACHE='munafa-v5';
+const FILES=['./','index.html','style.css','lang.js','app.js','auth.js','firebase-config.js','manifest.json','icon.svg'];
+const HOSTS=['www.gstatic.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)));
   self.skipWaiting();
@@ -10,5 +11,10 @@ self.addEventListener('activate',e=>{
 });
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
-  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+  const u=new URL(e.request.url);
+  if(u.origin!==location.origin&&!HOSTS.includes(u.hostname))return;
+  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
+    if(res.ok){const c=res.clone();caches.open(CACHE).then(k=>k.put(e.request,c))}
+    return res;
+  })));
 });

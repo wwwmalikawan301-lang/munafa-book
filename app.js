@@ -98,6 +98,7 @@ more(){
   <button class=row onclick="toggleHide()"><span>${x.hide}</span><span class=tag>${S.hide?'ON':'OFF'}</span></button>
   <button class=row onclick="setShop()"><span>${x.shop}</span><span class=tag>${S.shop}</span></button>
   <button class=row onclick="changePin()"><span>${x.chgpin}</span></button>
+  <button class=row onclick="doLogout()"><span>${x.logout}</span></button>
   <h2>${x.soon}</h2><p>${x.later}</p>`;
 }
 };

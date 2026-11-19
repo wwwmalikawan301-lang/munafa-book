@@ -1,4 +1,7 @@
 const $=s=>document.querySelector(s);
+const DIAG={err:'',snap:0,listen:'-'};
+window.addEventListener('error',e=>{DIAG.err=String(e.message||'error').slice(0,80)});
+window.addEventListener('unhandledrejection',e=>{DIAG.err=errCode(e.reason)});
 const fmt=n=>'Rs '+Math.round(n).toLocaleString('en-US');
 const S={loading:false,busy:false,shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:15,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:3200,cash:2800,ud:400,com:350,cost:2300,exp:150,bills:14}};
 const P=[];
@@ -89,6 +92,7 @@ more(){
   <button class=row onclick="toggleHide()"><span>${x.hide}</span><span class=tag>${S.hide?'ON':'OFF'}</span></button>
   <button class=row onclick="setShop()"><span>${x.shop}</span><span class=tag>${S.shop}</span></button>
   <button class=row onclick="changePin()"><span>${x.chgpin}</span></button>
+  <button class=row onclick="openDiag()"><span>${x.diag}</span></button>
   <button class=row onclick="doLogout()"><span>${x.logout}</span></button>
   <h2>${x.soon}</h2><p>${x.later}</p>`;
 }
@@ -104,7 +108,10 @@ function render(){
   const x=t();
   $('#nav').innerHTML=['today','sale','stock','acc','more'].map(k=>`<button class="${S.tab===k||(k==='more'&&S.tab==='udhaar')?'on':''}" onclick="go('${k}')">${ic(k)}<span>${x[k]}</span></button>`).join('');
 }
-function toast(m){const e=$('#toast');e.textContent=m;e.style.display='block';setTimeout(()=>e.style.display='none',2000)}
+let tmr;
+function toast(m,ms){const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(tmr);tmr=setTimeout(()=>e.style.display='none',ms||2000)}
+function errCode(e){return String((e&&(e.code||e.message))||e||'unknown').slice(0,80)}
+function showErr(e){const c=errCode(e);DIAG.err=c;toast(t().authErr+' ('+c+')',7000)}
 function modal(h){$('#modal').innerHTML='<div>'+h+'</div>';$('#modal').style.display='block'}
 function closeM(){$('#modal').style.display='none'}
 function go(k){S.tab=k;S.q='';S.cat='';render();scrollTo(0,0)}
@@ -245,11 +252,17 @@ async function addP(){
   const n=clean(gv('an')),tp=gv('at')||'item',p=+gv('ap');
   if(!n||(tp!=='commission'&&!(p>0))){toast(t().name+' / '+t().price);return}
   S.busy=true;
-  const f=$('#af').files[0],ph=f?await shrink(f):{};
-  const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:tp==='commission'?0:p,cost:Math.max(0,+gv('ac')||0),stock:tp==='item'?Math.max(0,+gv('aq')||0):0,minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab')),type:tp,thumb:ph.th||'',full:ph.full||''};
-  S.busy=false;closeM();
-  DB.add(o).catch(()=>toast(t().authErr));
-  toast(t().added);
+  try{
+    const f=$('#af').files[0];
+    const ph=f?await Promise.race([shrink(f),new Promise(r=>setTimeout(()=>r({}),3000))]):{};
+    const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:tp==='commission'?0:p,cost:Math.max(0,+gv('ac')||0),stock:tp==='item'?Math.max(0,+gv('aq')||0):0,minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab')),type:tp,thumb:ph.th||'',full:ph.full||''};
+    if(typeof DB==='undefined')throw new Error('DB-missing');
+    const pr=DB.add(o);
+    closeM();
+    toast(t().added);
+    pr.catch(showErr);
+  }catch(e){showErr(e)}
+  finally{S.busy=false}
 }
 function openProd(id){
   const p=P.find(z=>z.id===id),x=t(),ns=p.svc||p.com;
@@ -270,18 +283,28 @@ async function editSave(id){
   const n=clean(gv('an'));
   if(!n){toast(t().name);return}
   S.busy=true;
-  const f=$('#af').files[0],ph=f?await shrink(f):{};
-  const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:Math.max(0,+gv('ap')||0),minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab'))};
-  if(ph.th){o.thumb=ph.th;o.full=ph.full}
-  S.busy=false;closeM();
-  DB.edit(id,o).catch(()=>toast(t().authErr));
-  toast(t().updated);
+  try{
+    const f=$('#af').files[0];
+    const ph=f?await Promise.race([shrink(f),new Promise(r=>setTimeout(()=>r({}),3000))]):{};
+    const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:Math.max(0,+gv('ap')||0),minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab'))};
+    if(ph.th){o.thumb=ph.th;o.full=ph.full}
+    if(typeof DB==='undefined')throw new Error('DB-missing');
+    const pr=DB.edit(id,o);
+    closeM();
+    toast(t().updated);
+    pr.catch(showErr);
+  }catch(e){showErr(e)}
+  finally{S.busy=false}
 }
 function arch(id){
   if(!confirm(t().sure))return;
-  closeM();
-  DB.archive(id).catch(()=>toast(t().authErr));
-  toast(t().removed);
+  try{
+    if(typeof DB==='undefined')throw new Error('DB-missing');
+    const pr=DB.archive(id);
+    closeM();
+    toast(t().removed);
+    pr.catch(showErr);
+  }catch(e){showErr(e)}
 }
 function newAvg(p,q,uc){const o=Math.max(0,p.s),n=o+q;return n>0?Math.round((o*p.c+q*uc)/n*100)/100:uc}
 function openIn(id){
@@ -296,9 +319,18 @@ function pvIn(id){
 function inSave(id){
   const p=P.find(z=>z.id===id),q=+gv('iq'),uc=+gv('ic');
   if(!(q>0)||gv('ic')===''||!(uc>=0)){toast(t().qtyBad);return}
-  closeM();
-  DB.stockIn(p,q,uc,newAvg(p,q,uc)).catch(()=>toast(t().authErr));
-  toast(t().stockAdded);
+  try{
+    if(typeof DB==='undefined')throw new Error('DB-missing');
+    const pr=DB.stockIn(p,q,uc,newAvg(p,q,uc));
+    closeM();
+    toast(t().stockAdded);
+    pr.catch(showErr);
+  }catch(e){showErr(e)}
+}
+function openDiag(){
+  const x=t(),u=window.UID,yn=v=>v?x.dYes:x.dNo;
+  const r=(a,b)=>`<div class=row><span>${a}</span><b>${b}</b></div>`;
+  modal(`<h1>${x.diag}</h1>${r(x.dLogin,yn(u))}${r(x.dUid,u?u.slice(0,6):'-')}${r(x.dItems,P.length)}${r(x.dDb,yn(typeof DB!=='undefined'))}${r(x.dListen,DIAG.listen+' / '+DIAG.snap)}${r(x.dNet,yn(navigator.onLine))}${r(x.dErr,clean(DIAG.err)||'-')}<button class="btn alt" onclick="closeM()">${x.done}</button>`);
 }
 function setShop(){const v=prompt(t().shop,S.shop);if(v&&v.trim()){S.shop=v.trim();localStorage.shop=S.shop;render()}}
 function setLang(l){S.lang=l;localStorage.lang=l;render()}

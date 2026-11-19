@@ -7,6 +7,7 @@ const r2=v=>Math.round(v*100)/100;
 const S={loading:false,busy:false,shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:1,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:0,cash:0,ud:0,com:0,cost:0,exp:0,bills:0}};
 const P=[];
 const C=[];
+const B=[];
 const W=[];
 const D=[];
 const I={
@@ -77,8 +78,10 @@ stock(){
 },
 acc(){
   const x=t(),d=S.day;
-  return `<h1>${x.acc}</h1><h2>${x.days}</h2>
+  return `<h1>${x.acc}</h1>
   <div class=row><span>${x.today}<br><small>${fmt(d.sales)}</small></span><b>${hid(d.sales-d.cost-d.exp)}</b></div>
+  <h2>${x.bToday}</h2>${B.length?B.map(b=>`<button class=row onclick="openBill('${b.id}')"><span>#${b.billNo}<br><small>${b.status==='cancelled'?x.bCancelled:(b.payment==='udhaar'?clean(b.customerName):x.bCash)}</small></span><b${b.status==='cancelled'?' style="opacity:.5;text-decoration:line-through"':''}>${fmt(b.total)}</b></button>`).join(''):`<p>${x.empty}</p>`}
+  <h2>${x.days}</h2>
   ${D.length?D.map(r=>`<div class=row><span>${r[0]}<br><small>${fmt(r[1])}</small></span><b>${hid(r[2])}</b></div>`).join(''):`<p>${x.empty}</p>`}`;
 },
 udhaar(){
@@ -340,6 +343,32 @@ function inSave(id){
     toast(t().stockAdded);
     pr.catch(showErr);
   }catch(e){showErr(e)}
+}
+function openBill(id){
+  const b=B.find(z=>z.id===id);if(!b)return;
+  const x=t();
+  modal(`<h1>#${b.billNo}${b.status==='cancelled'?' - '+x.bCancelled:''}</h1>${b.customerName?`<p>${clean(b.customerName)}</p>`:''}${b.items.map(i=>`<div class=row><span>${clean(i.name)} x${i.qty}</span><b>${fmt(i.amount)}</b></div>`).join('')}${b.discount?`<div class=row><span>${x.disc}</span><b>-${fmt(b.discount)}</b></div>`:''}<div class=row><span>${x.total}</span><b>${fmt(b.total)}</b></div>${b.status==='active'?`<button class="btn alt" onclick="askCancel('${id}')">${x.bCancel}</button>`:''}<button class="btn alt" onclick="closeM()">${x.done}</button>`);
+}
+function askCancel(id){
+  const b=B.find(z=>z.id===id);if(!b)return;
+  const x=t();
+  if(b.payment==='udhaar'){toast(x.bNoUd,5000);return}
+  modal(`<h1>${x.bCancel} #${b.billNo}</h1><p>${x.bCancelAsk}</p><div class=seg><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="doCancel('${id}')">${x.ok}</button></div>`);
+}
+function doCancel(id){
+  if(S.busy)return;
+  S.busy=true;
+  try{
+    const b=B.find(z=>z.id===id);
+    if(!b||b.status!=='active')return;
+    if(b.payment==='udhaar'){toast(t().bNoUd,5000);return}
+    if(typeof DB==='undefined')throw new Error('DB-missing');
+    const pr=DB.cancel(b);
+    closeM();
+    toast(t().bDone);
+    pr.catch(showErr);
+  }catch(e){showErr(e)}
+  finally{S.busy=false}
 }
 function openDiag(){
   const x=t(),u=window.UID,yn=v=>v?x.dYes:x.dNo;

@@ -3,6 +3,7 @@ const DIAG={err:'',snap:0,listen:'-'};
 window.addEventListener('error',e=>{DIAG.err=String(e.message||'error').slice(0,80)});
 window.addEventListener('unhandledrejection',e=>{DIAG.err=errCode(e.reason)});
 const fmt=n=>'Rs '+Math.round(n).toLocaleString('en-US');
+const r2=v=>Math.round(v*100)/100;
 const S={loading:false,busy:false,shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:1,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:0,cash:0,ud:0,com:0,cost:0,exp:0,bills:0}};
 const P=[];
 const C=[];
@@ -23,7 +24,7 @@ const ic=k=>`<svg viewBox="0 0 24 24">${I[k]}</svg>`;
 const t=()=>T[S.lang];
 const hid=n=>S.hide?'Rs ****':fmt(n);
 const card=(l,v)=>`<div class=card><span>${l}</span><b>${v}</b></div>`;
-const sub=()=>S.cart.reduce((a,x)=>a+x.pr*x.q,0);
+const sub=()=>S.cart.reduce((a,x)=>a+Math.round(x.pr*x.q),0);
 const total=()=>Math.max(0,sub()-S.disc);
 const hdr=()=>`<div class=top><b>Munafa Book</b><span><button class=ib onclick="toggleHide()" aria-label="hide">${ic(S.hide?'eyeoff':'eye')}</button><button class=ib onclick="lockNow()" aria-label="lock">${ic('lock')}</button></span></div>`;
 
@@ -63,7 +64,7 @@ today(){
 },
 sale(){
   const x=t(),e=S.cart.length?'':'disabled';
-  return `<h1>${x.sale}</h1><p class=note>${x.demoSale}</p><input placeholder="${x.search}" value="${S.q}" oninput="setQ(this.value)">${chips()}<div id=list>${plist(1)}</div>
+  return `<h1>${x.sale}</h1><input placeholder="${x.search}" value="${S.q}" oninput="setQ(this.value)">${chips()}<div id=list>${plist(1)}</div>
   <h2>${x.cart}</h2><div id=cart>${cartHtml()}</div>
   <input type=number inputmode=numeric placeholder="${x.disc}" value="${S.disc||''}" oninput="S.disc=+this.value||0;$('#tot').textContent=fmt(total())">
   <div class=row><span>${x.total}</span><b id=tot>${fmt(total())}</b></div>
@@ -174,16 +175,29 @@ function stamp(){const d=new Date();return d.toLocaleDateString('en-GB')+' '+d.t
 function finish(name,phone){
   if(S.saving)return;
   S.saving=true;
-  const tot=total(),d=S.day,items=S.cart.map(x=>({n:x.p.n,q:x.q,pr:x.pr}));
-  const R={no:S.no++,date:stamp(),items:items,disc:S.disc,total:tot,name:name||'',phone:'',bal:0};
-  S.cart.forEach(x=>{
-    x.p.sold+=x.q;d.cost+=x.p.c*x.q;
-    if(x.p.com)d.com+=x.pr*x.q;
-  });
-  d.sales+=tot;d.bills++;
-  if(name){d.ud+=tot;const c=addBal(name,tot,phone,{no:R.no,date:R.date,items:items,total:tot});R.bal=c.bal;R.phone=c.ph}else d.cash+=tot;
-  S.cart=[];S.disc=0;S.saving=false;S.rc=R;
-  render();showRc();
+  try{
+    if(typeof DB==='undefined')throw new Error('DB-missing');
+    if(!S.noReady){toast(t().wait);return}
+    const L=S.cart.map(x=>{const ty=x.p.com?'commission':x.p.svc?'service':'item';return{x:x,ty:ty,amt:Math.round(x.pr*x.q),cost:ty==='commission'?0:(+x.p.c||0)}});
+    if(!L.length)return;
+    if(L.some(l=>l.ty==='item'&&l.x.q>l.x.p.s)){toast(t().warn);return}
+    const sb=L.reduce((a,l)=>a+l.amt,0);
+    const disc=Math.min(Math.max(0,Math.round(S.disc||0)),sb),tot=sb-disc;
+    let left=disc;
+    L.forEach((l,i)=>{const sh=i===L.length-1?left:Math.floor(disc*l.amt/(sb||1));l.sh=sh;left-=sh;l.profit=r2(l.amt-l.cost*l.x.q-sh)});
+    const cost=r2(L.reduce((a,l)=>a+l.cost*l.x.q,0)),profit=r2(L.reduce((a,l)=>a+l.profit,0)),comm=r2(L.filter(l=>l.ty==='commission').reduce((a,l)=>a+l.profit,0));
+    const no=S.no,ph=(phone||'').trim();
+    const sale={billNo:no,items:L.map(l=>({productId:l.x.p.id,name:l.x.p.n,qty:l.x.q,price:l.x.pr,amount:l.amt,costAtSale:l.cost,profit:l.profit,type:l.ty})),subtotal:sb,discount:disc,total:tot,cost:cost,profit:profit,commission:comm,payment:name?'udhaar':'cash',customerName:name||'',customerPhone:ph};
+    const pr=DB.sale(sale);
+    S.no=no+1;
+    const items=S.cart.map(x=>({n:x.p.n,q:x.q,pr:x.pr}));
+    const R={no:no,date:stamp(),items:items,disc:disc,total:tot,name:name||'',phone:'',bal:0};
+    if(name){const c=addBal(name,tot,ph,{no:R.no,date:R.date,items:items,total:tot});R.bal=c.bal;R.phone=c.ph}
+    S.cart=[];S.disc=0;S.rc=R;
+    render();showRc();
+    pr.catch(showErr);
+  }catch(e){showErr(e)}
+  finally{S.saving=false}
 }
 function rcHtml(R){
   const x=t();
@@ -224,7 +238,7 @@ function remind(i){
 function payIn(i){
   const c=C[i],a=Math.min(+$('#pa').value,c.bal);
   if(!a)return;
-  c.bal-=a;S.day.cash+=a;closeM();render();
+  c.bal-=a;closeM();render();
 }
 function shrink(f){
   return new Promise(res=>{

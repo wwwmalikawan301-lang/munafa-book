@@ -1,59 +1,101 @@
 import { auth, db } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, doc, query, where, orderBy, limit, documentId, onSnapshot, writeBatch, increment, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged, deleteUser } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { collection, doc, query, where, onSnapshot, writeBatch, increment, serverTimestamp, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { resolveUserShop, createInvite, listMembers, toggleMember } from "./staff.js";
 
 let unsubs = [];
 let lastDaily = [];
 let billsUnsub = null, billsKey = '';
-const col = n => { if (!auth.currentUser) throw new Error('no-login'); return collection(db, 'shops', auth.currentUser.uid, n); };
-const dayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
-const ts = () => serverTimestamp();
+let activeShopId = null;
 
-// ---daily-start
+function shopId() {
+  if (typeof S !== 'undefined' && S.shopId) return S.shopId;
+  if (auth.currentUser) return auth.currentUser.uid;
+  throw new Error('no-login');
+}
+const col = n => { if (!auth.currentUser) throw new Error('no-login'); return collection(db, 'shops', shopId(), n); };
+
+function dayKey() {
+  const startStr = (typeof S !== 'undefined' && S.cfg && S.cfg.dayStart) || '00:00';
+  const parts = startStr.split(':');
+  const sh = Math.min(23, Math.max(0, parseInt(parts[0], 10) || 0));
+  const sm = Math.min(59, Math.max(0, parseInt(parts[1], 10) || 0));
+  const now = new Date();
+  const dt = new Date(now.getTime() - ((sh * 60 + sm) * 60000));
+  return dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+}
+const ts = () => serverTimestamp();
 const keyDays = (k, n) => { const d = new Date(k + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 const lbl = k => new Date(k + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const g = (x, k) => +(x && x[k]) || 0;
+
 function applyDaily() {
   const tk = dayKey(), m = {};
   lastDaily.forEach(x => { m[x.id] = x; });
   const t0 = m[tk];
-  S.day = { sales: g(t0, 'sales'), cash: g(t0, 'cashIn'), ud: g(t0, 'udhaar'), com: g(t0, 'commission'), cost: g(t0, 'cost'), exp: g(t0, 'expenses'), bills: g(t0, 'bills') };
+  S.day = {
+    sales: g(t0, 'sales'),
+    cash: g(t0, 'cashIn'),
+    cashOut: g(t0, 'cashOut'),
+    ud: g(t0, 'udhaar'),
+    com: g(t0, 'commission'),
+    cost: g(t0, 'cost'),
+    exp: g(t0, 'expenses'),
+    bills: g(t0, 'bills'),
+    closed: !!(t0 && t0.closed),
+    countedCash: g(t0, 'countedCash')
+  };
   W.length = 0;
   for (let i = 6; i >= 1; i--) W.push(g(m[keyDays(tk, i)], 'sales'));
   D.length = 0;
   lastDaily.slice().sort((a, b) => (a.id < b.id ? 1 : -1)).filter(x => x.id < tk).forEach(x => D.push([lbl(x.id), g(x, 'sales'), g(x, 'sales') - g(x, 'cost') - g(x, 'expenses')]));
 }
-// ---daily-end
 
-function subBills(uid) {
+function subBills(sid) {
   if (billsUnsub) { billsUnsub(); billsUnsub = null; }
   billsKey = dayKey();
-  billsUnsub = onSnapshot(query(collection(db, 'shops', uid, 'sales'), where('dayKey', '==', billsKey)), s => {
+  billsUnsub = onSnapshot(query(collection(db, 'shops', sid, 'sales'), where('dayKey', '==', billsKey)), s => {
     B.length = 0;
     s.docs.forEach(x => B.push(Object.assign({ id: x.id }, x.data({ serverTimestamps: 'estimate' }))));
-    B.sort((a, b) => b.billNo - a.billNo);
+    B.sort((a, b) => (b.billNo || 0) - (a.billNo || 0));
     render();
   }, e => { showErr({ code: 'bills-' + errCode(e) }); });
 }
 
-onAuthStateChanged(auth, u => {
+async function attachListeners(u) {
   unsubs.forEach(f => f());
   unsubs = [];
   if (billsUnsub) { billsUnsub(); billsUnsub = null; }
-  B.length = 0;
-  P.length = 0;
+  B.length = 0; P.length = 0; C.length = 0;
+  if (typeof WAL !== 'undefined') WAL.length = 0;
+  if (typeof SUP !== 'undefined') SUP.length = 0;
   lastDaily = [];
-  S.no = 1;
-  S.noReady = false;
-  S.loading = !!u;
+  S.no = 1; S.noReady = false; S.loading = !!u;
   DIAG.listen = u ? 'wait' : '-';
-  applyDaily();
-  render();
+  applyDaily(); render();
   if (!u) return;
-  const uid = u.uid;
-  subBills(uid);
-  setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === uid) S.noReady = true; }, 3000);
-  unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'products'), where('active', '==', true)), s => {
+
+  const info = await resolveUserShop(u);
+  S.shopId = info.shopId; S.role = info.role;
+  activeShopId = info.shopId;
+
+  try {
+    const sDoc = await getDoc(doc(db, 'shops', activeShopId, 'settings', 'main'));
+    if (sDoc.exists()) {
+      const sd = sDoc.data();
+      S.cfg = {
+        dayStart: sd.dayStart || '00:00',
+        allowNegativeStock: !!sd.allowNegativeStock,
+        billFooter: sd.billFooter || '',
+        lowStockDefault: +sd.lowStockDefault || 0
+      };
+    }
+  } catch (e) {}
+
+  subBills(activeShopId);
+  setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === u.uid) S.noReady = true; }, 3000);
+
+  unsubs.push(onSnapshot(query(collection(db, 'shops', activeShopId, 'products'), where('active', '==', true)), s => {
     P.length = 0;
     s.forEach(d => {
       const x = d.data();
@@ -70,97 +112,58 @@ onAuthStateChanged(auth, u => {
     DIAG.snap++; DIAG.listen = 'ok';
     render();
   }, e => { S.loading = false; DIAG.listen = 'error'; showErr(e); render(); }));
-  unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'daily'), where('dayKey', '>=', keyDays(dayKey(), 14))), s => {
+
+  unsubs.push(onSnapshot(query(collection(db, 'shops', activeShopId, 'customers'), where('active', '==', true)), s => {
+    C.length = 0;
+    s.forEach(d => C.push(Object.assign({ id: d.id }, d.data())));
+    C.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    render();
+  }, e => { showErr({ code: 'cust-' + errCode(e) }); }));
+
+  unsubs.push(onSnapshot(query(collection(db, 'shops', activeShopId, 'daily'), where('dayKey', '>=', keyDays(dayKey(), 45))), s => {
     lastDaily = s.docs.map(d => Object.assign({ id: d.id }, d.data()));
     applyDaily();
     render();
   }, e => { showErr({ code: 'daily-' + errCode(e) }); }));
-  unsubs.push(onSnapshot(doc(db, 'shops', u.uid, 'meta', 'counter'), s => {
+
+  unsubs.push(onSnapshot(doc(db, 'shops', activeShopId, 'meta', 'counter'), s => {
     const n = ((s.exists() && s.data().billNo) || 0) + 1;
     if (n > S.no) S.no = n;
     S.noReady = true;
   }, e => { showErr({ code: 'counter-' + errCode(e) }); }));
-});
+
+  if (S.role === 'owner') {
+    unsubs.push(onSnapshot(query(collection(db, 'shops', activeShopId, 'wallets'), where('active', '==', true)), s => {
+      if (typeof WAL !== 'undefined') {
+        WAL.length = 0;
+        s.forEach(d => WAL.push(Object.assign({ id: d.id }, d.data())));
+        render();
+      }
+    }, e => { showErr({ code: 'wal-' + errCode(e) }); }));
+
+    unsubs.push(onSnapshot(query(collection(db, 'shops', activeShopId, 'suppliers'), where('active', '==', true)), s => {
+      if (typeof SUP !== 'undefined') {
+        SUP.length = 0;
+        s.forEach(d => SUP.push(Object.assign({ id: d.id }, d.data())));
+        render();
+      }
+    }, e => { showErr({ code: 'sup-' + errCode(e) }); }));
+  }
+}
+
+window.initShopData = attachListeners;
+onAuthStateChanged(auth, u => { attachListeners(u); });
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && auth.currentUser) {
-    if (billsKey !== dayKey()) subBills(auth.currentUser.uid);
+  if (!document.hidden && auth.currentUser && activeShopId) {
+    if (billsKey !== dayKey()) subBills(activeShopId);
     applyDaily(); render();
   }
 });
 
-window.DB = {
-  add(o) {
-    const b = writeBatch(db), r = doc(col('products'));
-    b.set(r, {
-      name: o.name, category: o.category, unit: o.unit, salePrice: o.salePrice, avgCost: o.cost,
-      stock: o.stock, minStock: o.minStock, barcode: o.barcode, type: o.type, thumb: o.thumb || '',
-      hasPhoto: !!o.full, sold: 0, active: true, createdAt: ts(), updatedAt: ts()
-    });
-    if (o.full) b.set(doc(col('photos'), r.id), { full: o.full });
-    if (o.stock > 0) b.set(doc(col('stockIns')), { productId: r.id, qty: o.stock, unitCost: o.cost, dayKey: dayKey(), createdAt: ts() });
-    return b.commit();
-  },
-  edit(id, o) {
-    const b = writeBatch(db), f = { name: o.name, category: o.category, unit: o.unit, salePrice: o.salePrice, minStock: o.minStock, barcode: o.barcode, updatedAt: ts() };
-    if (o.full) { f.thumb = o.thumb || ''; f.hasPhoto = true; b.set(doc(col('photos'), id), { full: o.full }); }
-    b.update(doc(col('products'), id), f);
-    return b.commit();
-  },
-  archive(id) {
+async function commitBatches(ops) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const chunk = ops.slice(i, i + 400);
     const b = writeBatch(db);
-    b.update(doc(col('products'), id), { active: false, updatedAt: ts() });
-    return b.commit();
-  },
-  stockIn(p, q, uc, avg) {
-    const b = writeBatch(db);
-    b.update(doc(col('products'), p.id), { stock: increment(q), avgCost: avg, updatedAt: ts() });
-    b.set(doc(col('stockIns')), { productId: p.id, qty: q, unitCost: uc, dayKey: dayKey(), createdAt: ts() });
-    return b.commit();
-  },
-  // Asli bikri: sale document + stock kam + daily hisaab + bill number, sab ek hi batch mein
-  sale(o) {
-    const b = writeBatch(db), dk = dayKey(), r = doc(col('sales'));
-    b.set(r, {
-      dayKey: dk, createdAt: ts(), billNo: o.billNo, items: o.items, subtotal: o.subtotal, discount: o.discount,
-      total: o.total, cost: o.cost, profit: o.profit, commission: o.commission, payment: o.payment,
-      customerName: o.customerName, customerPhone: o.customerPhone, status: 'active', note: ''
-    });
-    const m = {};
-    o.items.forEach(i => { const a = m[i.productId] || (m[i.productId] = { q: 0, t: i.type }); a.q += i.qty; });
-    Object.keys(m).forEach(id => {
-      const a = m[id], f = { sold: increment(a.q), updatedAt: ts() };
-      if (a.t === 'item') f.stock = increment(-a.q);
-      b.update(doc(col('products'), id), f);
-    });
-    const cash = o.payment === 'cash' ? o.total : 0, ud = o.payment === 'udhaar' ? o.total : 0;
-    b.set(doc(col('daily'), dk), {
-      dayKey: dk, sales: increment(o.total), cost: increment(o.cost), profit: increment(o.profit), bills: increment(1),
-      cashIn: increment(cash), udhaar: increment(ud), commission: increment(o.commission), updatedAt: ts()
-    }, { merge: true });
-    b.set(doc(col('meta'), 'counter'), { billNo: increment(1) }, { merge: true });
-    return b.commit();
-  },
-  // Bill cancel: sale ko "cancelled" likho (mitao nahi), stock wapas, daily hisaab ulta
-  cancel(sl) {
-    const b = writeBatch(db);
-    b.update(doc(col('sales'), sl.id), { status: 'cancelled', cancelledAt: ts() });
-    const m = {};
-    sl.items.forEach(i => { const a = m[i.productId] || (m[i.productId] = { q: 0, t: i.type }); a.q += i.qty; });
-    Object.keys(m).forEach(id => {
-      const a = m[id], f = { sold: increment(-a.q), updatedAt: ts() };
-      if (a.t === 'item') f.stock = increment(a.q);
-      b.update(doc(col('products'), id), f);
-    });
-    const cash = sl.payment === 'cash' ? sl.total : 0, ud = sl.payment === 'udhaar' ? sl.total : 0;
-    b.set(doc(col('daily'), sl.dayKey), {
-      sales: increment(-sl.total), cost: increment(-(sl.cost || 0)), profit: increment(-(sl.profit || 0)), bills: increment(-1),
-      cashIn: increment(-cash), udhaar: increment(-ud), commission: increment(-(sl.commission || 0)), updatedAt: ts()
-    }, { merge: true });
-    return b.commit();
-  },
-  async photo(id) {
-    const s = await getDoc(doc(col('photos'), id));
-    return s.exists() ? s.data().full : '';
-  }
-};
+    chunk.forEach(op => {
+      if (op.type === 'set') b.set(op.ref,

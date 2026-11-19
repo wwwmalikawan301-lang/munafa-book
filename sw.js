@@ -1,5 +1,5 @@
-const CACHE='munafa-v12';
-const FILES=['./','index.html','style.css','lang.js','app.js','auth.js','data.js','firebase-config.js','manifest.json','icon.svg'];
+const CACHE='munafa-v15';
+const FILES=['./','index.html','style.css','lang.js','app.js','auth.js','data.js','staff.js','firebase-config.js','manifest.json','icon.svg','privacy.html','make-icons.html'];
 const HOSTS=['www.gstatic.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>Promise.all(FILES.map(f=>fetch(new Request(f,{cache:'reload'})).then(r=>{if(!r.ok)throw new Error(f);return c.put(f,r)})))));

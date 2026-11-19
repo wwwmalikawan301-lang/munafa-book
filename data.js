@@ -20,7 +20,7 @@ function applyDaily() {
   W.length = 0;
   for (let i = 6; i >= 1; i--) W.push(g(m[keyDays(tk, i)], 'sales'));
   D.length = 0;
-  lastDaily.filter(x => x.id < tk).forEach(x => D.push([lbl(x.id), g(x, 'sales'), g(x, 'sales') - g(x, 'cost') - g(x, 'expenses')]));
+  lastDaily.slice().sort((a, b) => (a.id < b.id ? 1 : -1)).filter(x => x.id < tk).forEach(x => D.push([lbl(x.id), g(x, 'sales'), g(x, 'sales') - g(x, 'cost') - g(x, 'expenses')]));
 }
 // ---daily-end
 
@@ -53,17 +53,17 @@ onAuthStateChanged(auth, u => {
     DIAG.snap++; DIAG.listen = 'ok';
     render();
   }, e => { S.loading = false; DIAG.listen = 'error'; showErr(e); render(); }));
-  unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'daily'), orderBy(documentId(), 'desc'), limit(10)), s => {
+  unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'daily'), where('dayKey', '>=', keyDays(dayKey(), 14))), s => {
     lastDaily = s.docs.map(d => Object.assign({ id: d.id }, d.data()));
     applyDaily();
     render();
-  }, e => { showErr(e); }));
+  }, e => { showErr({ code: 'daily-' + errCode(e) }); }));
   unsubs.push(onSnapshot(doc(db, 'shops', u.uid, 'meta', 'counter'), s => {
     if (s.metadata.fromCache && !s.exists()) return;
     const n = ((s.exists() && s.data().billNo) || 0) + 1;
     if (n > S.no) S.no = n;
     S.noReady = true;
-  }, e => { showErr(e); }));
+  }, e => { showErr({ code: 'counter-' + errCode(e) }); }));
 });
 
 document.addEventListener('visibilitychange', () => {

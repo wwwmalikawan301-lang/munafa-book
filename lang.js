@@ -1,23 +1,116 @@
 const T={
-en:{today:'Today',sales:'Sales',profit:'Profit',exp:'Expenses',net:'Net profit',bills:'Bills',low:'Low stock',top:'Top selling',week:'Last 7 days',sale:'Sale',stock:'Stock',acc:'Accounts',more:'More',search:'Search item',cart:'Bill',empty:'Nothing here yet',disc:'Discount',total:'Total',save:'Save sale',add:'Add item',name:'Name',price:'Sale price',cost:'Cost price',qty:'Quantity',lang:'Language',hide:'Hide profit',soon:'Coming soon',cancel:'Cancel',out:'Finished',warn:'Not enough stock',saved:'Sale saved',svc:'Service (no stock)',days:'Daily accounts',later:'Udhaar, suppliers, expenses, backup, PIN lock'},
-rm:{today:'Aaj',sales:'Bikri',profit:'Naafa',exp:'Kharcha',net:'Khalis naafa',bills:'Bills',low:'Kam stock',top:'Sab se zyada bikne wali',week:'Pichle 7 din',sale:'Bikri',stock:'Stock',acc:'Hisaab',more:'Mazeed',search:'Cheez dhoondein',cart:'Bill',empty:'Abhi kuch nahi',disc:'Discount',total:'Total',save:'Bikri mehfooz karein',add:'Nayi cheez',name:'Naam',price:'Bikri qeemat',cost:'Kharid qeemat',qty:'Miqdar',lang:'Zubaan',hide:'Naafa chhupayein',soon:'Jald aa raha hai',cancel:'Wapas',out:'Khatam',warn:'Itna stock nahi',saved:'Bikri mehfooz ho gayi',svc:'Service (stock nahi)',days:'Roz ka hisaab',later:'Udhaar, supplier, kharche, backup, PIN lock'},
-ur:{today:'آج',sales:'بکری',profit:'نفع',exp:'خرچہ',net:'خالص نفع',bills:'بل',low:'کم اسٹاک',top:'سب سے زیادہ بکنے والی',week:'پچھلے 7 دن',sale:'بکری',stock:'اسٹاک',acc:'حساب',more:'مزید',search:'چیز تلاش کریں',cart:'بل',empty:'ابھی کچھ نہیں',disc:'رعایت',total:'کل',save:'بکری محفوظ کریں',add:'نئی چیز',name:'نام',price:'بکری کی قیمت',cost:'خرید کی قیمت',qty:'مقدار',lang:'زبان',hide:'نفع چھپائیں',soon:'جلد آ رہا ہے',cancel:'واپس',out:'ختم',warn:'اتنا اسٹاک نہیں',saved:'بکری محفوظ ہو گئی',svc:'سروس (اسٹاک نہیں)',days:'روز کا حساب',later:'ادھار، سپلائر، خرچے، بیک اپ، پن لاک'}
+en:{today:'Today',sales:'Sales',profit:'Profit',exp:'Expenses',net:'Net profit',bills:'Bills',low:'Low stock',top:'Top selling',week:'Last 7 days',sale:'Sale',stock:'Stock',acc:'Accounts',more:'More',search:'Search item',cart:'Bill',empty:'Nothing here yet',disc:'Discount',total:'Total',save:'Save sale',add:'Add item',name:'Name',price:'Sale price',cost:'Cost price',qty:'Quantity',lang:'Language',hide:'Hide profit',soon:'Coming soon',cancel:'Cancel',out:'Finished',warn:'Not enough stock',saved:'Sale saved',svc:'Service (no stock)',days:'Daily accounts',later:'Staff, wallets, suppliers, rules, data delete'},
+rm:{today:'Aaj',sales:'Bikri',profit:'Naafa',exp:'Kharcha',net:'Khalis naafa',bills:'Bills',low:'Kam stock',top:'Sab se zyada bikne wali',week:'Pichle 7 din',sale:'Bikri',stock:'Stock',acc:'Hisaab',more:'Mazeed',search:'Cheez dhoondein',cart:'Bill',empty:'Abhi kuch nahi',disc:'Discount',total:'Total',save:'Bikri mehfooz karein',add:'Nayi cheez',name:'Naam',price:'Bikri qeemat',cost:'Kharid qeemat',qty:'Miqdar',lang:'Zubaan',hide:'Naafa chhupayein',soon:'Jald aa raha hai',cancel:'Wapas',out:'Khatam',warn:'Itna stock nahi',saved:'Bikri mehfooz ho gayi',svc:'Service (stock nahi)',days:'Roz ka hisaab',later:'Staff, wallet, supplier, rules, data delete'},
+ur:{today:'آج',sales:'بکری',profit:'نفع',exp:'خرچہ',net:'خالص نفع',bills:'بل',low:'کم اسٹاک',top:'سب سے زیادہ بکنے والی',week:'پچھلے 7 دن',sale:'بکری',stock:'اسٹاک',acc:'حساب',more:'مزید',search:'چیز تلاش کریں',cart:'بل',empty:'ابھی کچھ نہیں',disc:'رعایت',total:'کل',save:'بکری محفوظ کریں',add:'نئی چیز',name:'نام',price:'بکری کی قیمت',cost:'خرید کی قیمت',qty:'مقدار',lang:'زبان',hide:'نفع چھپائیں',soon:'جلد آ رہا ہے',cancel:'واپس',out:'ختم',warn:'اتنا اسٹاک نہیں',saved:'بکری محفوظ ہو گئی',svc:'سروس (اسٹاک نہیں)',days:'روز کا حساب',later:'اسٹاف، والٹ، سپلائر، رولز، ڈیٹا ڈیلیٹ'}
 };
-Object.assign(T.en,{pin1:'Enter PIN',pin2:'Set a new 4-digit PIN',pin3:'Enter PIN again',pinBad:'Wrong PIN',cash:'Cash received',udg:'Udhaar given',comm:'Commission',all:'All',payC:'Cash',payU:'Udhaar',cust:'Customer name',amt:'Amount',ukhata:'Udhaar Khata',newU:'New separate udhaar',recv:'Receive payment',cat:'Category',chgpin:'Change PIN',isCom:'Commission service',comAsk:'Commission earned',comTag:'Commission',ok:'OK'});
-Object.assign(T.rm,{pin1:'PIN likhein',pin2:'Naya 4 ankon ka PIN banayein',pin3:'PIN dobara likhein',pinBad:'PIN ghalat hai',cash:'Cash aaya',udg:'Udhaar diya',comm:'Commission',all:'Sab',payC:'Cash',payU:'Udhaar',cust:'Grahak ka naam',amt:'Raqam',ukhata:'Udhaar Khata',newU:'Naya alag udhaar',recv:'Wasooli jama karein',cat:'Category',chgpin:'PIN badlein',isCom:'Commission service',comAsk:'Aap ka commission',comTag:'Commission',ok:'Theek hai'});
-Object.assign(T.ur,{pin1:'پن لکھیں',pin2:'نیا 4 ہندسوں کا پن بنائیں',pin3:'پن دوبارہ لکھیں',pinBad:'پن غلط ہے',cash:'نقد آیا',udg:'ادھار دیا',comm:'کمیشن',all:'سب',payC:'نقد',payU:'ادھار',cust:'گاہک کا نام',amt:'رقم',ukhata:'ادھار کھاتہ',newU:'نیا الگ ادھار',recv:'وصولی جمع کریں',cat:'زمرہ',chgpin:'پن بدلیں',isCom:'کمیشن سروس',comAsk:'آپ کا کمیشن',comTag:'کمیشن',ok:'ٹھیک ہے'});
-Object.assign(T.en,{wa:'Send on WhatsApp',prt:'Print',done:'Close',phone:'WhatsApp number',rcBal:'Udhaar balance',rcRem:'Send reminder',shop:'Shop name',thanks:'Thank you',rmd:'Reminder: please clear your balance.'});
-Object.assign(T.rm,{wa:'WhatsApp par bhejein',prt:'Print',done:'Band karein',phone:'WhatsApp number',rcBal:'Baqi udhaar',rcRem:'Yaad dehani bhejein',shop:'Dukan ka naam',thanks:'Shukriya',rmd:'Yaad dehani: meharbani kar ke udhaar ada karein.'});
-Object.assign(T.ur,{wa:'واٹس ایپ پر بھیجیں',prt:'پرنٹ',done:'بند کریں',phone:'واٹس ایپ نمبر',rcBal:'باقی ادھار',rcRem:'یاد دہانی بھیجیں',shop:'دکان کا نام',thanks:'شکریہ',rmd:'یاد دہانی: مہربانی کر کے ادھار ادا کریں۔'});
-Object.assign(T.en,{email:'Email',pass:'Password (6+ characters)',login:'Login',signup:'Create account',toSignup:'New shop? Create account',toLogin:'I already have an account',authFill:'Please fill all fields',authBad:'Wrong email or password',authUsed:'This email is already used',authWeak:'Password is too short (6+)',authBadMail:'Email is not valid',authNet:'No internet',authMany:'Too many tries, wait a little',authErr:'Something went wrong',wait:'Loading...',logout:'Logout',sure:'Are you sure?'});
-Object.assign(T.rm,{email:'Email',pass:'Password (kam az kam 6 harf)',login:'Login karein',signup:'Account banayein',toSignup:'Nayi dukan? Account banayein',toLogin:'Mera account pehle se hai',authFill:'Sab khane bharein',authBad:'Email ya password ghalat hai',authUsed:'Ye email pehle se istemal ho chuka hai',authWeak:'Password chhota hai (kam az kam 6)',authBadMail:'Email theek nahi hai',authNet:'Internet nahi hai',authMany:'Bohat koshishein, thori der ruk jayein',authErr:'Kuch masla hua',wait:'Load ho raha hai...',logout:'Logout',sure:'Kya aap ko yakeen hai?'});
-Object.assign(T.ur,{email:'ای میل',pass:'پاس ورڈ (کم از کم 6 حروف)',login:'لاگ ان کریں',signup:'اکاؤنٹ بنائیں',toSignup:'نئی دکان؟ اکاؤنٹ بنائیں',toLogin:'میرا اکاؤنٹ پہلے سے ہے',authFill:'سب خانے بھریں',authBad:'ای میل یا پاس ورڈ غلط ہے',authUsed:'یہ ای میل پہلے سے استعمال ہو چکی ہے',authWeak:'پاس ورڈ چھوٹا ہے (کم از کم 6)',authBadMail:'ای میل درست نہیں',authNet:'انٹرنیٹ نہیں ہے',authMany:'بہت کوششیں، تھوڑی دیر رکیں',authErr:'کچھ مسئلہ ہوا',wait:'لوڈ ہو رہا ہے...',logout:'لاگ آؤٹ',sure:'کیا آپ کو یقین ہے؟'});
-Object.assign(T.en,{stockIn:'Add stock (purchase)',edit:'Edit',del:'Remove item',added:'Item added',stockAdded:'Stock added',updated:'Saved',removed:'Item removed',qtyBad:'Enter a valid quantity and cost',unit:'Unit (piece, kg, dozen...)',minStock:'Minimum stock (for alert)',barcode:'Barcode (optional)',photo:'Photo',moreF:'More details',tItem:'Normal item',newAvg:'New average cost',demoSale:'Demo: sales do not change stock yet (next phase).',moreItems:'Type in search to see more items'});
-Object.assign(T.rm,{stockIn:'Stock aaya (kharid)',edit:'Badlein',del:'Hata dein',added:'Cheez add ho gayi',stockAdded:'Stock jur gaya',updated:'Tabdeeli mehfooz',removed:'Cheez hata di',qtyBad:'Sahi miqdar aur qeemat likhein',unit:'Unit (adad, kg, darjan...)',minStock:'Kam az kam miqdar (alert ke liye)',barcode:'Barcode (zaroori nahi)',photo:'Tasveer',moreF:'Mazeed tafseel',tItem:'Aam cheez',newAvg:'Nayi average lagat',demoSale:'Demo: bikri abhi stock kam nahi karti (agle phase mein hoga).',moreItems:'Aur cheezein dekhne ke liye search karein'});
-Object.assign(T.ur,{stockIn:'اسٹاک آیا (خرید)',edit:'بدلیں',del:'ہٹا دیں',added:'چیز شامل ہو گئی',stockAdded:'اسٹاک شامل ہو گیا',updated:'تبدیلی محفوظ',removed:'چیز ہٹا دی',qtyBad:'درست مقدار اور قیمت لکھیں',unit:'اکائی (عدد، کلو، درجن...)',minStock:'کم از کم مقدار (الرٹ کے لیے)',barcode:'بار کوڈ (ضروری نہیں)',photo:'تصویر',moreF:'مزید تفصیل',tItem:'عام چیز',newAvg:'نئی اوسط لاگت',demoSale:'ڈیمو: بکری ابھی اسٹاک کم نہیں کرتی (اگلے مرحلے میں ہوگا)۔',moreItems:'مزید چیزیں دیکھنے کے لیے تلاش کریں'});
-Object.assign(T.en,{diag:'Check panel',dLogin:'Logged in',dUid:'User ID (first 6)',dItems:'Items loaded',dDb:'Data module ready',dListen:'Live data (state / count)',dNet:'Internet',dErr:'Last error',dYes:'Yes',dNo:'No'});
-Object.assign(T.rm,{diag:'Jaanch ka paigham',dLogin:'Login hai',dUid:'User ID (pehle 6)',dItems:'Cheezein load hui',dDb:'Data module tayyar',dListen:'Live data (haalat / ginti)',dNet:'Internet',dErr:'Aakhri error',dYes:'Haan',dNo:'Nahi'});
-Object.assign(T.ur,{diag:'جانچ کا پیغام',dLogin:'لاگ ان ہے',dUid:'یوزر آئی ڈی (پہلے 6)',dItems:'چیزیں لوڈ ہوئیں',dDb:'ڈیٹا ماڈیول تیار',dListen:'لائیو ڈیٹا (حالت / گنتی)',dNet:'انٹرنیٹ',dErr:'آخری ایرر',dYes:'ہاں',dNo:'نہیں'});
-Object.assign(T.en,{bToday:'Bills today',bCancel:'Cancel bill',bCancelAsk:'Stock will come back and this bill will be removed from the accounts of today. The bill stays in the record as cancelled.',bCancelled:'Cancelled',bNoUd:'Udhaar bills cannot be cancelled yet (the khata comes in the next step)',bDone:'Bill cancelled',bCash:'Cash',bUd:'Udhaar'});
-Object.assign(T.rm,{bToday:'Aaj ke bill',bCancel:'Bill cancel karein',bCancelAsk:'Stock wapas aa jayega aur ye bill aaj ke hisaab se hat jayega. Bill record mein cancel likha reh jayega.',bCancelled:'Cancel',bNoUd:'Udhaar ka bill abhi cancel nahi ho sakta (khata agle step mein aayega)',bDone:'Bill cancel ho gaya',bCash:'Cash',bUd:'Udhaar'});
-Object.assign(T.ur,{bToday:'آج کے بل',bCancel:'بل کینسل کریں',bCancelAsk:'اسٹاک واپس آ جائے گا اور یہ بل آج کے حساب سے ہٹ جائے گا۔ بل ریکارڈ میں کینسل لکھا رہے گا۔',bCancelled:'کینسل',bNoUd:'ادھار کا بل ابھی کینسل نہیں ہو سکتا (کھاتہ اگلے مرحلے میں آئے گا)',bDone:'بل کینسل ہو گیا',bCash:'کیش',bUd:'ادھار'});
+Object.assign(T.en,{
+pin1:'Enter PIN',pin2:'Set a new 4-digit PIN',pin3:'Enter PIN again',pinBad:'Wrong PIN',
+cash:'Cash received',udg:'Udhaar given',comm:'Commission',all:'All',payC:'Cash',payU:'Udhaar',
+cust:'Customer name',amt:'Amount',ukhata:'Udhaar Khata',newU:'New udhaar',recv:'Receive payment',
+cat:'Category',chgpin:'Change PIN',isCom:'Commission service',comAsk:'Commission earned',comTag:'Commission',ok:'OK',
+wa:'Send on WhatsApp',prt:'Print',done:'Close',phone:'WhatsApp number',rcBal:'Udhaar balance',
+rcRem:'Send reminder',shop:'Shop name',thanks:'Thank you',rmd:'Reminder: please clear your balance.',
+email:'Email',pass:'Password (6+ characters)',login:'Login',signup:'Create account',
+toSignup:'New shop? Create account',toLogin:'I already have an account',authFill:'Please fill all fields',
+authBad:'Wrong email or password',authUsed:'This email is already used',authWeak:'Password is too short (6+)',
+authBadMail:'Email is not valid',authNet:'No internet',authMany:'Too many tries, wait a little',
+authErr:'Something went wrong',wait:'Loading...',logout:'Logout',sure:'Are you sure?',
+stockIn:'Add stock (purchase)',edit:'Edit',del:'Remove item',added:'Item added',stockAdded:'Stock added',
+updated:'Saved',removed:'Item removed',qtyBad:'Enter a valid quantity and cost',
+unit:'Unit (piece, kg, dozen...)',minStock:'Minimum stock (for alert)',barcode:'Barcode (optional)',
+photo:'Photo',moreF:'More details',tItem:'Normal item',newAvg:'New average cost',
+moreItems:'Type in search to see more items',
+diag:'Check panel',dLogin:'Logged in',dUid:'User ID (first 6)',dItems:'Items loaded',
+dDb:'Data module ready',dListen:'Live data (state / count)',dNet:'Internet',dErr:'Last error',dYes:'Yes',dNo:'No',
+bToday:'Bills today',bCancel:'Cancel bill',bCancelAsk:'Stock will come back and this bill will be reversed. The bill stays as cancelled.',
+bCancelled:'Cancelled',bDone:'Bill cancelled',bCash:'Cash',bUd:'Udhaar',
+searchCust:'Search customer',dupCust:'Customer with this name already exists',
+payments:'Payments',reversePay:'Reverse payment',payReversed:'Payment reversed',
+migrateUd:'Build khata from old udhaar bills',
+migrateWarn:'WARNING: This will also count test bills and link old udhaar bills by name. Running again will not double balance.',
+migrateDone:'Old udhaar khata updated',
+returnItem:'Return items',returnTitle:'Return items from bill',returnDone:'Return saved',
+pickDay:'Pick day',monthRep:'Monthly report',month:'Month',
+expTitle:'Expenses',addExp:'Add expense',expCat:'Category (rent, bill, salary, tea, other)',
+expNote:'Note',expSaved:'Expense saved',expCancel:'Cancel expense',expCancelled:'Expense cancelled',
+closeDay:'Close day',dayClosed:'Day closed',dayIsClosed:'This day is closed. Reversal will be recorded in today.',
+estCash:'Estimated cash',countedCash:'Counted cash in drawer',diffCash:'Difference',
+closeNote:'Close note',closeConfirm:'Close day now?',
+settings:'Settings',dayStart:'Day start time (HH:MM)',negStock:'Allow negative stock',
+billFooter:'Receipt footer note',lowDef:'Default low stock limit',darkMode:'Dark mode',
+privPolicy:'Privacy policy',shareRep:'Share report',noData:'No data'
+});
+Object.assign(T.rm,{
+pin1:'PIN likhein',pin2:'Naya 4 ankon ka PIN banayein',pin3:'PIN dobara likhein',pinBad:'PIN ghalat hai',
+cash:'Cash aaya',udg:'Udhaar diya',comm:'Commission',all:'Sab',payC:'Cash',payU:'Udhaar',
+cust:'Grahak ka naam',amt:'Raqam',ukhata:'Udhaar Khata',newU:'Naya udhaar',recv:'Wasooli jama karein',
+cat:'Category',chgpin:'PIN badlein',isCom:'Commission service',comAsk:'Aap ka commission',comTag:'Commission',ok:'Theek hai',
+wa:'WhatsApp par bhejein',prt:'Print',done:'Band karein',phone:'WhatsApp number',rcBal:'Baqi udhaar',
+rcRem:'Yaad dehani bhejein',shop:'Dukan ka naam',thanks:'Shukriya',rmd:'Yaad dehani: meharbani kar ke udhaar ada karein.',
+email:'Email',pass:'Password (kam az kam 6 harf)',login:'Login karein',signup:'Account banayein',
+toSignup:'Nayi dukan? Account banayein',toLogin:'Mera account pehle se hai',authFill:'Sab khane bharein',
+authBad:'Email ya password ghalat hai',authUsed:'Ye email pehle se istemal ho chuka hai',authWeak:'Password chhota hai (kam az kam 6)',
+authBadMail:'Email theek nahi hai',authNet:'Internet nahi hai',authMany:'Bohat koshishein, thori der ruk jayein',
+authErr:'Kuch masla hua',wait:'Load ho raha hai...',logout:'Logout',sure:'Kya aap ko yakeen hai?',
+stockIn:'Stock aaya (kharid)',edit:'Badlein',del:'Hata dein',added:'Cheez add ho gayi',stockAdded:'Stock jur gaya',
+updated:'Tabdeeli mehfooz',removed:'Cheez hata di',qtyBad:'Sahi miqdar aur qeemat likhein',
+unit:'Unit (adad, kg, darjan...)',minStock:'Kam az kam miqdar (alert ke liye)',barcode:'Barcode (zaroori nahi)',
+photo:'Tasveer',moreF:'Mazeed tafseel',tItem:'Aam cheez',newAvg:'Nayi average lagat',
+moreItems:'Aur cheezein dekhne ke liye search karein',
+diag:'Jaanch ka paigham',dLogin:'Login hai',dUid:'User ID (pehle 6)',dItems:'Cheezein load hui',
+dDb:'Data module tayyar',dListen:'Live data (haalat / ginti)',dNet:'Internet',dErr:'Aakhri error',dYes:'Haan',dNo:'Nahi',
+bToday:'Aaj ke bill',bCancel:'Bill cancel karein',bCancelAsk:'Stock wapas aayega aur hisaab ulta hoga. Bill cancel likha rahega.',
+bCancelled:'Cancel',bDone:'Bill cancel ho gaya',bCash:'Cash',bUd:'Udhaar',
+searchCust:'Grahak dhoondein',dupCust:'Is naam ka grahak pehle se hai',
+payments:'Wasooli',reversePay:'Wasooli ulta karein',payReversed:'Wasooli ulta ho gayi',
+migrateUd:'Purane udhaar bills se khata banayein',
+migrateWarn:'WARN: Ye test bills ko bhi ginega aur purane udhaar bills ko naam se jorega. Dobara dabane se baqi dugna nahi hoga.',
+migrateDone:'Purana udhaar khata ban gaya',
+returnItem:'Kuch cheezein wapas',returnTitle:'Bill se cheezein wapas',returnDone:'Wapsi mehfooz ho gayi',
+pickDay:'Din chunein',monthRep:'Mahine ka hisaab',month:'Mahina',
+expTitle:'Kharche',addExp:'Kharcha jorein',expCat:'Category (kiraya, bijli, tankhwah, chai, doosra)',
+expNote:'Note',expSaved:'Kharcha mehfooz ho gaya',expCancel:'Kharcha cancel',expCancelled:'Kharcha cancel ho gaya',
+closeDay:'Din band karein',dayClosed:'Din band ho chuka hai',dayIsClosed:'Ye din band hai. Wapsi ka hisaab aaj ke din mein likha jayega.',
+estCash:'Andaza shuda cash',countedCash:'Asli gine hue paise (galla)',diffCash:'Farq',
+closeNote:'Band karte waqt note',closeConfirm:'Kya aap aaj ka din band karna chahte hain?',
+settings:'Settings',dayStart:'Din ki shuruaat (HH:MM)',negStock:'Manfi stock ki ijazat',
+billFooter:'Bill ke neeche likhai',lowDef:'Kam stock ki default hadd',darkMode:'Dark mode',
+privPolicy:'Privacy policy',shareRep:'Report share karein',noData:'Koi data nahi'
+});
+Object.assign(T.ur,{
+pin1:'پن لکھیں',pin2:'نیا 4 ہندسوں کا پن بنائیں',pin3:'پن دوبارہ لکھیں',pinBad:'پن غلط ہے',
+cash:'نقد آیا',udg:'ادھار دیا',comm:'کمیشن',all:'سب',payC:'نقد',payU:'ادھار',
+cust:'گاہک کا نام',amt:'رقم',ukhata:'ادھار کھاتہ',newU:'نیا ادھار',recv:'وصولی جمع کریں',
+cat:'زمرہ',chgpin:'پن بدلیں',isCom:'کمیشن سروس',comAsk:'آپ کا کمیشن',comTag:'کمیشن',ok:'ٹھیک ہے',
+wa:'واٹس ایپ پر بھیجیں',prt:'پرنٹ',done:'بند کریں',phone:'واٹس ایپ نمبر',rcBal:'باقی ادھار',
+rcRem:'یاد دہانی بھیجیں',shop:'دکان کا نام',thanks:'شکریہ',rmd:'یاد دہانی: مہربانی کر کے ادھار ادا کریں۔',
+email:'ای میل',pass:'پاس ورڈ (کم از کم 6 حروف)',login:'لاگ ان کریں',signup:'اکاؤنٹ بنائیں',
+toSignup:'نئی دکان؟ اکاؤنٹ بنائیں',toLogin:'میرا اکاؤنٹ پہلے سے ہے',authFill:'سب خانے بھریں',
+authBad:'ای میل یا پاس ورڈ غلط ہے',authUsed:'یہ ای میل پہلے سے استعمال ہو چکی ہے',authWeak:'پاس ورڈ چھوٹا ہے (کم از کم 6)',
+authBadMail:'ای میل درست نہیں',authNet:'انٹرنیٹ نہیں ہے',authMany:'بہت کوششیں، تھوڑی دیر رکیں',
+authErr:'کچھ مسئلہ ہوا',wait:'لوڈ ہو رہا ہے...',logout:'لاگ آؤٹ',sure:'کیا آپ کو یقین ہے؟',
+stockIn:'اسٹاک آیا (خرید)',edit:'بدلیں',del:'ہٹا دیں',added:'چیز شامل ہو گئی',stockAdded:'اسٹاک شامل ہو گیا',
+updated:'تبدیلی محفوظ',removed:'چیز ہٹا دی',qtyBad:'درست مقدار اور قیمت لکھیں',
+unit:'اکائی (عدد، کلو، درجن...)',minStock:'کم از کم مقدار (الرٹ کے لیے)',barcode:'بار کوڈ (ضروری نہیں)',
+photo:'تصویر',moreF:'مزید تفصیل',tItem:'عام چیز',newAvg:'نئی اوسط لاگت',
+moreItems:'مزید چیزیں دیکھنے کے لیے تلاش کریں',
+diag:'جانچ کا پیغام',dLogin:'لاگ ان ہے',dUid:'یوزر آئی ڈی (پہلے 6)',dItems:'چیزیں لوڈ ہوئیں',
+dDb:'ڈیٹا ماڈیول تیار',dListen:'لائیو ڈیٹا (حالت / گنتی)',dNet:'انٹرنیٹ',dErr:'آخری ایرر',dYes:'ہاں',dNo:'نہیں',
+bToday:'آج کے بل',bCancel:'بل کینسل کریں',bCancelAsk:'اسٹاک واپس آئے گا اور حساب الٹا ہوگا۔ بل کینسل رہے گا۔',
+bCancelled:'کینسل',bDone:'بل کینسل ہو گیا',bCash:'کیش',bUd:'ادھار',
+searchCust:'گاہک تلاش کریں',dupCust:'اس نام کا گاہک پہلے سے موجود ہے',
+payments:'وصولی',reversePay:'وصولی الٹی کریں',payReversed:'وصولی الٹی ہو گئی',
+migrateUd:'پرانے ادھار بلوں سے کھاتہ بنائیں',
+migrateWarn:'انتباہ: یہ ٹیسٹ بل بھی گنے گا اور پرانے ادھار بل نام سے جوڑے گا۔ دوبارہ دبانے سے باقی دوگنا نہیں ہوگا۔',
+migrateDone:'پرانا ادھار کھاتہ بن گیا',
+returnItem:'کچھ چیزیں واپس',returnTitle:'بل سے چیزیں واپس',returnDone:'واپسی محفوظ ہو گئی',
+pickDay:'دن منتخب کریں',monthRep:'مہینے کا حساب',month:'مہینہ',
+expTitle:'خرچے',addExp:'خرچہ شامل کریں',expCat:'زمرہ (کرایہ، بجلی، تنخواہ، چائے، دیگر)',
+expNote:'نوٹ',expSaved:'خرچہ محفوظ ہو گیا',expCancel:'خرچہ کینسل',expCancelled:'خرچہ کینسل ہو گیا',
+closeDay:'دن بند کریں',dayClosed:'دن بند ہو چکا ہے',dayIsClosed:'یہ دن بند ہے۔ واپسی آج کے دن میں درج ہوگی۔',
+estCash:'اندازہ شدہ کیش',countedCash:'گلے میں گنی گئی رقم',diffCash:'فرق',
+closeNote:'بند کرتے وقت نوٹ',closeConfirm:'کیا آپ آج کا دن بند کرنا چاہتے ہیں؟',
+settings:'ترتیبات',dayStart:'دن کے آغاز کا وقت (HH:MM)',negStock:'منفی اسٹاک کی اجازت',
+billFooter:'بل کے نیچے تحریر',lowDef:'کم اسٹاک کی ڈیفالٹ حد',darkMode:'ڈارک موڈ',
+privPolicy:'پرائیویسی پالیسی',shareRep:'رپورٹ شیئر کریں',noData:'کوئی ڈیٹا نہیں'
+});

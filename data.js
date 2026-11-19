@@ -36,6 +36,8 @@ onAuthStateChanged(auth, u => {
   applyDaily();
   render();
   if (!u) return;
+  const uid = u.uid;
+  setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === uid) S.noReady = true; }, 3000);
   unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'products'), where('active', '==', true)), s => {
     P.length = 0;
     s.forEach(d => {
@@ -59,7 +61,6 @@ onAuthStateChanged(auth, u => {
     render();
   }, e => { showErr({ code: 'daily-' + errCode(e) }); }));
   unsubs.push(onSnapshot(doc(db, 'shops', u.uid, 'meta', 'counter'), s => {
-    if (s.metadata.fromCache && !s.exists()) return;
     const n = ((s.exists() && s.data().billNo) || 0) + 1;
     if (n > S.no) S.no = n;
     S.noReady = true;
@@ -119,7 +120,7 @@ window.DB = {
       dayKey: dk, sales: increment(o.total), cost: increment(o.cost), profit: increment(o.profit), bills: increment(1),
       cashIn: increment(cash), udhaar: increment(ud), commission: increment(o.commission), updatedAt: ts()
     }, { merge: true });
-    b.set(doc(col('meta'), 'counter'), { billNo: o.billNo }, { merge: true });
+    b.set(doc(col('meta'), 'counter'), { billNo: increment(1) }, { merge: true });
     return b.commit();
   },
   async photo(id) {

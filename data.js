@@ -3,7 +3,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/f
 import { collection, doc, query, where, onSnapshot, writeBatch, increment, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let unsub = null;
-const col = n => collection(db, 'shops', auth.currentUser.uid, n);
+const col = n => { if (!auth.currentUser) throw new Error('no-login'); return collection(db, 'shops', auth.currentUser.uid, n); };
 const dayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
 const ts = () => serverTimestamp();
 
@@ -11,6 +11,7 @@ onAuthStateChanged(auth, u => {
   if (unsub) { unsub(); unsub = null; }
   P.length = 0;
   S.loading = !!u;
+  DIAG.listen = u ? 'wait' : '-';
   if (!u) { render(); return; }
   render();
   unsub = onSnapshot(query(collection(db, 'shops', u.uid, 'products'), where('active', '==', true)), s => {
@@ -27,8 +28,9 @@ onAuthStateChanged(auth, u => {
     P.sort((a, b) => a.n.localeCompare(b.n));
     S.cart = S.cart.filter(l => { const p = P.find(z => z.id === l.p.id); if (p) l.p = p; return !!p; });
     S.loading = false;
+    DIAG.snap++; DIAG.listen = 'ok';
     render();
-  }, () => { S.loading = false; toast(t().authErr); render(); });
+  }, e => { S.loading = false; DIAG.listen = 'error'; showErr(e); render(); });
 });
 
 window.DB = {

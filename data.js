@@ -1,20 +1,42 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, doc, query, where, onSnapshot, writeBatch, increment, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, doc, query, where, orderBy, limit, documentId, onSnapshot, writeBatch, increment, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-let unsub = null;
+let unsubs = [];
+let lastDaily = [];
 const col = n => { if (!auth.currentUser) throw new Error('no-login'); return collection(db, 'shops', auth.currentUser.uid, n); };
 const dayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
 const ts = () => serverTimestamp();
 
+// ---daily-start
+const keyDays = (k, n) => { const d = new Date(k + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+const lbl = k => new Date(k + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const g = (x, k) => +(x && x[k]) || 0;
+function applyDaily() {
+  const tk = dayKey(), m = {};
+  lastDaily.forEach(x => { m[x.id] = x; });
+  const t0 = m[tk];
+  S.day = { sales: g(t0, 'sales'), cash: g(t0, 'cashIn'), ud: g(t0, 'udhaar'), com: g(t0, 'commission'), cost: g(t0, 'cost'), exp: g(t0, 'expenses'), bills: g(t0, 'bills') };
+  W.length = 0;
+  for (let i = 6; i >= 1; i--) W.push(g(m[keyDays(tk, i)], 'sales'));
+  D.length = 0;
+  lastDaily.filter(x => x.id < tk).forEach(x => D.push([lbl(x.id), g(x, 'sales'), g(x, 'sales') - g(x, 'cost') - g(x, 'expenses')]));
+}
+// ---daily-end
+
 onAuthStateChanged(auth, u => {
-  if (unsub) { unsub(); unsub = null; }
+  unsubs.forEach(f => f());
+  unsubs = [];
   P.length = 0;
+  lastDaily = [];
+  S.no = 1;
+  S.noReady = false;
   S.loading = !!u;
   DIAG.listen = u ? 'wait' : '-';
-  if (!u) { render(); return; }
+  applyDaily();
   render();
-  unsub = onSnapshot(query(collection(db, 'shops', u.uid, 'products'), where('active', '==', true)), s => {
+  if (!u) return;
+  unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'products'), where('active', '==', true)), s => {
     P.length = 0;
     s.forEach(d => {
       const x = d.data();
@@ -30,7 +52,22 @@ onAuthStateChanged(auth, u => {
     S.loading = false;
     DIAG.snap++; DIAG.listen = 'ok';
     render();
-  }, e => { S.loading = false; DIAG.listen = 'error'; showErr(e); render(); });
+  }, e => { S.loading = false; DIAG.listen = 'error'; showErr(e); render(); }));
+  unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'daily'), orderBy(documentId(), 'desc'), limit(10)), s => {
+    lastDaily = s.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    applyDaily();
+    render();
+  }, e => { showErr(e); }));
+  unsubs.push(onSnapshot(doc(db, 'shops', u.uid, 'meta', 'counter'), s => {
+    if (s.metadata.fromCache && !s.exists()) return;
+    const n = ((s.exists() && s.data().billNo) || 0) + 1;
+    if (n > S.no) S.no = n;
+    S.noReady = true;
+  }, e => { showErr(e); }));
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && auth.currentUser) { applyDaily(); render(); }
 });
 
 window.DB = {
@@ -60,6 +97,29 @@ window.DB = {
     const b = writeBatch(db);
     b.update(doc(col('products'), p.id), { stock: increment(q), avgCost: avg, updatedAt: ts() });
     b.set(doc(col('stockIns')), { productId: p.id, qty: q, unitCost: uc, dayKey: dayKey(), createdAt: ts() });
+    return b.commit();
+  },
+  // Asli bikri: sale document + stock kam + daily hisaab + bill number, sab ek hi batch mein
+  sale(o) {
+    const b = writeBatch(db), dk = dayKey(), r = doc(col('sales'));
+    b.set(r, {
+      dayKey: dk, createdAt: ts(), billNo: o.billNo, items: o.items, subtotal: o.subtotal, discount: o.discount,
+      total: o.total, cost: o.cost, profit: o.profit, commission: o.commission, payment: o.payment,
+      customerName: o.customerName, customerPhone: o.customerPhone, status: 'active', note: ''
+    });
+    const m = {};
+    o.items.forEach(i => { const a = m[i.productId] || (m[i.productId] = { q: 0, t: i.type }); a.q += i.qty; });
+    Object.keys(m).forEach(id => {
+      const a = m[id], f = { sold: increment(a.q), updatedAt: ts() };
+      if (a.t === 'item') f.stock = increment(-a.q);
+      b.update(doc(col('products'), id), f);
+    });
+    const cash = o.payment === 'cash' ? o.total : 0, ud = o.payment === 'udhaar' ? o.total : 0;
+    b.set(doc(col('daily'), dk), {
+      dayKey: dk, sales: increment(o.total), cost: increment(o.cost), profit: increment(o.profit), bills: increment(1),
+      cashIn: increment(cash), udhaar: increment(ud), commission: increment(o.commission), updatedAt: ts()
+    }, { merge: true });
+    b.set(doc(col('meta'), 'counter'), { billNo: o.billNo }, { merge: true });
     return b.commit();
   },
   async photo(id) {

@@ -4,6 +4,7 @@ import { collection, doc, query, where, orderBy, limit, documentId, onSnapshot, 
 
 let unsubs = [];
 let lastDaily = [];
+let billsUnsub = null, billsKey = '';
 const col = n => { if (!auth.currentUser) throw new Error('no-login'); return collection(db, 'shops', auth.currentUser.uid, n); };
 const dayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
 const ts = () => serverTimestamp();
@@ -24,9 +25,22 @@ function applyDaily() {
 }
 // ---daily-end
 
+function subBills(uid) {
+  if (billsUnsub) { billsUnsub(); billsUnsub = null; }
+  billsKey = dayKey();
+  billsUnsub = onSnapshot(query(collection(db, 'shops', uid, 'sales'), where('dayKey', '==', billsKey)), s => {
+    B.length = 0;
+    s.docs.forEach(x => B.push(Object.assign({ id: x.id }, x.data({ serverTimestamps: 'estimate' }))));
+    B.sort((a, b) => b.billNo - a.billNo);
+    render();
+  }, e => { showErr({ code: 'bills-' + errCode(e) }); });
+}
+
 onAuthStateChanged(auth, u => {
   unsubs.forEach(f => f());
   unsubs = [];
+  if (billsUnsub) { billsUnsub(); billsUnsub = null; }
+  B.length = 0;
   P.length = 0;
   lastDaily = [];
   S.no = 1;
@@ -37,6 +51,7 @@ onAuthStateChanged(auth, u => {
   render();
   if (!u) return;
   const uid = u.uid;
+  subBills(uid);
   setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === uid) S.noReady = true; }, 3000);
   unsubs.push(onSnapshot(query(collection(db, 'shops', u.uid, 'products'), where('active', '==', true)), s => {
     P.length = 0;
@@ -68,7 +83,10 @@ onAuthStateChanged(auth, u => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && auth.currentUser) { applyDaily(); render(); }
+  if (!document.hidden && auth.currentUser) {
+    if (billsKey !== dayKey()) subBills(auth.currentUser.uid);
+    applyDaily(); render();
+  }
 });
 
 window.DB = {
@@ -121,6 +139,24 @@ window.DB = {
       cashIn: increment(cash), udhaar: increment(ud), commission: increment(o.commission), updatedAt: ts()
     }, { merge: true });
     b.set(doc(col('meta'), 'counter'), { billNo: increment(1) }, { merge: true });
+    return b.commit();
+  },
+  // Bill cancel: sale ko "cancelled" likho (mitao nahi), stock wapas, daily hisaab ulta
+  cancel(sl) {
+    const b = writeBatch(db);
+    b.update(doc(col('sales'), sl.id), { status: 'cancelled', cancelledAt: ts() });
+    const m = {};
+    sl.items.forEach(i => { const a = m[i.productId] || (m[i.productId] = { q: 0, t: i.type }); a.q += i.qty; });
+    Object.keys(m).forEach(id => {
+      const a = m[id], f = { sold: increment(-a.q), updatedAt: ts() };
+      if (a.t === 'item') f.stock = increment(a.q);
+      b.update(doc(col('products'), id), f);
+    });
+    const cash = sl.payment === 'cash' ? sl.total : 0, ud = sl.payment === 'udhaar' ? sl.total : 0;
+    b.set(doc(col('daily'), sl.dayKey), {
+      sales: increment(-sl.total), cost: increment(-(sl.cost || 0)), profit: increment(-(sl.profit || 0)), bills: increment(-1),
+      cashIn: increment(-cash), udhaar: increment(-ud), commission: increment(-(sl.commission || 0)), updatedAt: ts()
+    }, { merge: true });
     return b.commit();
   },
   async photo(id) {

@@ -3,11 +3,11 @@ const DIAG={err:'',snap:0,listen:'-'};
 window.addEventListener('error',e=>{DIAG.err=String(e.message||'error').slice(0,80)});
 window.addEventListener('unhandledrejection',e=>{DIAG.err=errCode(e.reason)});
 const fmt=n=>'Rs '+Math.round(n).toLocaleString('en-US');
-const S={loading:false,busy:false,shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:15,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:3200,cash:2800,ud:400,com:350,cost:2300,exp:150,bills:14}};
+const S={loading:false,busy:false,shop:localStorage.shop||'Meri Dukan',rc:null,lang:localStorage.lang||'rm',hide:localStorage.hide==='1',tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:1,buf:'',tmp:'',lock:localStorage.pin?'enter':'set1',day:{sales:0,cash:0,ud:0,com:0,cost:0,exp:0,bills:0}};
 const P=[];
-const C=[{n:'Ali',bal:1200,ph:'',log:[]},{n:'Sara',bal:450,ph:'',log:[]}];
-const W=[5200,6100,4800,7300,5900,6600];
-const D=[['16 Nov',6600,1500],['15 Nov',5900,1300],['14 Nov',7300,1900],['13 Nov',4800,1000],['12 Nov',6100,1400],['11 Nov',5200,1200]];
+const C=[];
+const W=[];
+const D=[];
 const I={
 today:'<path d="M3 11l9-8 9 8M5 10v10h14V10"/>',
 sale:'<path d="M3 4h3l2 11h10l2-8H7M9 20h.01M17 20h.01"/>',
@@ -57,7 +57,7 @@ today(){
   const d=S.day,x=t(),low=P.filter(p=>!p.svc&&!p.com&&p.s<=p.m),tp=[...P].sort((a,b)=>b.sold-a.sold).slice(0,5).filter(p=>p.sold>0);
   const all=[...W,d.sales],mx=Math.max(...all,1),pr=d.sales-d.cost;
   return `<h1>${x.today}</h1><div class=grid>${card(x.sales,fmt(d.sales))}${card(x.cash,fmt(d.cash))}${card(x.udg,fmt(d.ud))}${card(x.comm,fmt(d.com))}${card(x.profit,hid(pr))}${card(x.exp,fmt(d.exp))}${card(x.net,hid(pr-d.exp))}${card(x.bills,d.bills)}</div>
-  <h2>${x.week}</h2><div class=bars>${all.map(v=>`<i style="height:${Math.round(v/mx*100)}%"></i>`).join('')}</div>
+  ${W.length?`<h2>${x.week}</h2><div class=bars>${all.map(v=>`<i style="height:${Math.round(v/mx*100)}%"></i>`).join('')}</div>`:''}
   <h2>${x.low}</h2>${low.length?low.map(p=>`<div class=row><span>${p.n}</span><span class="tag red">${p.s}</span></div>`).join(''):`<p>${x.empty}</p>`}
   <h2>${x.top}</h2>${tp.length?tp.map(p=>`<div class=row><span>${p.n}</span><b>${p.sold}</b></div>`).join(''):`<p>${x.empty}</p>`}`;
 },
@@ -78,7 +78,7 @@ acc(){
   const x=t(),d=S.day;
   return `<h1>${x.acc}</h1><h2>${x.days}</h2>
   <div class=row><span>${x.today}<br><small>${fmt(d.sales)}</small></span><b>${hid(d.sales-d.cost-d.exp)}</b></div>
-  ${D.map(r=>`<div class=row><span>${r[0]}<br><small>${fmt(r[1])}</small></span><b>${hid(r[2])}</b></div>`).join('')}`;
+  ${D.length?D.map(r=>`<div class=row><span>${r[0]}<br><small>${fmt(r[1])}</small></span><b>${hid(r[2])}</b></div>`).join(''):`<p>${x.empty}</p>`}`;
 },
 udhaar(){
   const x=t();

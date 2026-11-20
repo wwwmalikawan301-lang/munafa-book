@@ -1,4 +1,4 @@
-const CACHE='munafa-v14';
+const CACHE='munafa-v15';
 const FILES=['./','index.html','style.css','lang.js','app.js','auth.js','data.js','firebase-config.js','manifest.json','icon.svg'];
 const HOSTS=['www.gstatic.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install',e=>{

@@ -1,5 +1,5 @@
 import { auth, db } from "./firebase-config.js";
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { resolveUserShop, joinShopByCode } from "./staff.js";
 
@@ -7,9 +7,19 @@ const box = document.createElement('div');
 box.id = 'auth';
 document.body.appendChild(box);
 let mode = 'login', busy = false, creating = false;
+let flash = '', keepMode = false, lastEmail = '';
 const x = () => T[S.lang] || T.rm;
 const val = id => (document.getElementById(id) || {}).value || '';
-const setMsg = m => { const e = document.getElementById('am'); if (e) e.textContent = m || ''; };
+const setMsg = (m, ok) => {
+  const e = document.getElementById('am');
+  if (e) { e.textContent = m || ''; e.style.color = ok ? '#0B5D4B' : ''; }
+};
+const FP = {
+  forgot: { ur: 'پاس ورڈ بھول گئے؟', rm: 'Password bhool gaye?', en: 'Forgot password?' },
+  mail: { ur: 'پہلے ای میل لکھیں', rm: 'Pehle email likhein', en: 'Type your email first' },
+  sent: { ur: 'ری سیٹ لنک آپ کی ای میل پر بھیج دیا گیا ہے', rm: 'Reset link aap ki email par bhej diya gaya hai', en: 'Reset link sent to your email' }
+};
+const fp = k => FP[k][S.lang] || FP[k].rm;
 
 function wait() {
   box.style.display = 'flex';
@@ -20,16 +30,20 @@ function draw() {
   const q = x();
   box.style.display = 'flex';
   box.innerHTML = `<div class="ab"><h1>Munafa Book</h1>
-  <input id="ae" type="email" autocomplete="email" placeholder="${q.email}">
+  <input id="ae" type="email" autocomplete="email" placeholder="${q.email}" value="${lastEmail.replace(/"/g, '&quot;')}">
   <input id="apw" type="password" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" placeholder="${q.pass}">
   ${mode === 'signup' ? `<input id="ash" placeholder="${q.shop}"><input id="ainv" placeholder="${q.inviteOpt}">` : ''}
   <p id="am" class="err"></p>
   <button class="btn" id="ago">${mode === 'login' ? q.login : q.signup}</button>
   <button class="btn alt" id="asw" style="margin-top:8px">${mode === 'login' ? q.toSignup : q.toLogin}</button>
+  ${mode === 'login' ? `<button class="btn alt" id="afp" style="margin-top:8px">${fp('forgot')}</button>` : ''}
   <div class="seg" style="margin-top:16px"><button class="btn alt" data-l="ur">اردو</button><button class="btn alt" data-l="rm">Roman</button><button class="btn alt" data-l="en">English</button></div></div>`;
   document.getElementById('ago').onclick = submit;
-  document.getElementById('asw').onclick = () => { mode = mode === 'login' ? 'signup' : 'login'; draw(); };
-  box.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { setLang(b.dataset.l); draw(); });
+  document.getElementById('asw').onclick = () => { lastEmail = val('ae').trim(); mode = mode === 'login' ? 'signup' : 'login'; draw(); };
+  const f = document.getElementById('afp');
+  if (f) f.onclick = forgot;
+  box.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { lastEmail = val('ae').trim(); setLang(b.dataset.l); draw(); });
+  if (flash) { setMsg(flash); flash = ''; }
 }
 
 function errText(c) {
@@ -40,27 +54,50 @@ function errText(c) {
   if (c === 'auth/invalid-email') return q.authBadMail;
   if (c === 'auth/network-request-failed') return q.authNet;
   if (c === 'auth/too-many-requests') return q.authMany;
-  if (c === 'invalid-code' || c === 'code-used') return q.badInvite;
+  if (c === 'invalid-code' || c === 'code-used' || c === 'code-required') return q.badInvite;
   return q.authErr + ' (' + c + ')';
+}
+
+async function forgot() {
+  if (busy) return;
+  const e = val('ae').trim();
+  lastEmail = e;
+  if (!e) { setMsg(fp('mail')); return; }
+  busy = true;
+  setMsg('');
+  try {
+    await sendPasswordResetEmail(auth, e);
+    setMsg(fp('sent'), true);
+  } catch (err) {
+    setMsg(errText(err.code || err.message || 'unknown'));
+  }
+  busy = false;
 }
 
 async function submit() {
   if (busy) return;
   const e = val('ae').trim(), p = val('apw'), n = val('ash').trim(), inv = val('ainv').trim();
+  lastEmail = e;
   if (!e || !p || (mode === 'signup' && !n && !inv)) { setMsg(x().authFill); return; }
   busy = true;
   const btn = document.getElementById('ago');
   btn.disabled = true;
   setMsg('');
+  let created = null;
   try {
     if (mode === 'login') {
       await signInWithEmailAndPassword(auth, e, p);
     } else {
       creating = true;
       const c = await createUserWithEmailAndPassword(auth, e, p);
+      created = c;
       if (inv) {
         const res = await joinShopByCode(c.user, inv, n || e);
         S.shopId = res.shopId; S.role = res.role;
+        try {
+          const ps = await getDoc(doc(db, 'shops', res.shopId, 'profile', 'main'));
+          if (ps.exists() && ps.data().name) { S.shop = ps.data().name; localStorage.shop = S.shop; }
+        } catch (e2) {}
       } else {
         const shopName = n || 'Meri Dukan';
         await setDoc(doc(db, 'shops', c.user.uid, 'profile', 'main'), { name: shopName, ownerUid: c.user.uid, createdAt: serverTimestamp() });
@@ -71,12 +108,20 @@ async function submit() {
       }
       creating = false;
       if (window.initShopData) await window.initShopData(c.user);
+      box.style.display = 'none';
       render();
     }
   } catch (err) {
     creating = false;
-    setMsg(errText(err.code || err.message || 'unknown'));
-    btn.disabled = false;
+    const msg = errText(err.code || err.message || 'unknown');
+    if (created) {
+      flash = msg; keepMode = true;
+      setTimeout(() => { flash = ''; }, 4000);
+      try { await deleteUser(created.user); } catch (e3) { try { await signOut(auth); } catch (e4) {} }
+    }
+    setMsg(msg);
+    const b2 = document.getElementById('ago');
+    if (b2) b2.disabled = false;
   }
   busy = false;
 }
@@ -84,11 +129,13 @@ async function submit() {
 onAuthStateChanged(auth, async u => {
   if (!u) {
     window.UID = null; S.shopId = null; S.role = 'owner';
-    mode = 'login'; draw(); return;
+    if (!keepMode) mode = 'login';
+    keepMode = false;
+    draw(); return;
   }
   window.UID = u.uid;
-  box.style.display = 'none';
   if (creating) return;
+  box.style.display = 'none';
   try {
     const info = await resolveUserShop(u);
     S.shopId = info.shopId;

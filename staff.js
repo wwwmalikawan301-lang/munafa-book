@@ -47,7 +47,7 @@ export async function joinShopByCode(u, codeRaw, staffName) {
   const shopId = inv.shopId;
   const b = writeBatch(db);
   b.set(doc(db, "shops", shopId, "members", u.uid), {
-    role: "cashier", name: staffName || u.email || "Cashier", active: true, createdAt: serverTimestamp()
+    role: "cashier", name: staffName || u.email || "Cashier", active: true, inviteCode: code, createdAt: serverTimestamp()
   });
   b.set(doc(db, "userShops", u.uid), {
     shopId, role: "cashier", createdAt: serverTimestamp()

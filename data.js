@@ -1,12 +1,29 @@
 import { auth, db } from "./firebase-config.js";
-import { onAuthStateChanged, deleteUser } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, doc, query, where, onSnapshot, writeBatch, increment, serverTimestamp, getDoc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged, deleteUser, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { collection, doc, query, where, onSnapshot, writeBatch, increment, serverTimestamp, getDoc, getDocs, setDoc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { resolveUserShop, createInvite, listMembers, toggleMember } from "./staff.js";
 
 let unsubs = [];
 let lastDaily = [];
 let billsUnsub = null, billsKey = '';
 let activeShopId = null;
+let attachSeq = 0;
+
+const toJ = v => {
+  if (v && typeof v.toMillis === 'function') return { __ts: v.toMillis() };
+  if (Array.isArray(v)) return v.map(toJ);
+  if (v && typeof v === 'object') { const o = {}; for (const k in v) o[k] = toJ(v[k]); return o; }
+  return v;
+};
+const fromJ = v => {
+  if (v && typeof v === 'object') {
+    if (typeof v.__ts === 'number') return Timestamp.fromMillis(v.__ts);
+    if (Array.isArray(v)) return v.map(fromJ);
+    const o = {}; for (const k in v) o[k] = fromJ(v[k]); return o;
+  }
+  return v;
+};
+const msgOf = d => d[(typeof S !== 'undefined' && S.lang) || 'rm'] || d.rm;
 
 function shopId() {
   if (typeof S !== 'undefined' && S.shopId) return S.shopId;
@@ -63,10 +80,12 @@ function subBills(sid) {
 }
 
 async function attachListeners(u) {
+  const my = ++attachSeq;
   unsubs.forEach(f => f());
   unsubs = [];
   if (billsUnsub) { billsUnsub(); billsUnsub = null; }
   B.length = 0; P.length = 0; C.length = 0;
+  if (!u) S.cart = [];
   if (typeof WAL !== 'undefined') WAL.length = 0;
   if (typeof SUP !== 'undefined') SUP.length = 0;
   lastDaily = [];
@@ -77,6 +96,24 @@ async function attachListeners(u) {
   if (!u) return;
 
   const info = await resolveUserShop(u);
+  if (my !== attachSeq) return;
+  if (info.role !== 'owner') {
+    try {
+      const m = await getDoc(doc(db, 'shops', info.shopId, 'members', u.uid));
+      if (!m.exists() || m.data().active === false) {
+        if (my !== attachSeq) return;
+        S.loading = false;
+        alert(msgOf({
+          ur: 'مالک نے آپ کا اکاؤنٹ بند کر دیا ہے',
+          rm: 'Owner ne aap ka access band kar diya hai',
+          en: 'The owner has turned off your access'
+        }));
+        await signOut(auth);
+        return;
+      }
+    } catch (e) {}
+    if (my !== attachSeq) return;
+  }
   S.shopId = info.shopId; S.role = info.role;
   activeShopId = info.shopId;
 
@@ -92,6 +129,7 @@ async function attachListeners(u) {
       };
     }
   } catch (e) {}
+  if (my !== attachSeq) return;
 
   subBills(activeShopId);
   setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === u.uid) S.noReady = true; }, 3000);
@@ -180,7 +218,7 @@ const DB_API = {
   dayKey,
   createInvite: () => createInvite(shopId()),
   listMembers: () => listMembers(shopId()),
-  toggleMember: (mid, act) => toggleMember(shopId(), mid, act),
+  toggleMember: (mid, act) => (mid === shopId() ? Promise.resolve() : toggleMember(shopId(), mid, act)),
 
   add(o) {
     const b = writeBatch(db), r = doc(col('products'));
@@ -207,14 +245,18 @@ const DB_API = {
   stockIn(p, q, uc, avg, supInfo) {
     const b = writeBatch(db), dk = dayKey();
     const totalAmt = Math.round(q * uc);
-    const paidAmt = supInfo ? Math.min(totalAmt, Math.max(0, Math.round(+supInfo.paid || 0))) : totalAmt;
+    const hasSup = !!(supInfo && supInfo.supplierId);
+    const paidAmt = hasSup ? Math.min(totalAmt, Math.max(0, Math.round(+supInfo.paid || 0))) : totalAmt;
     const dueAmt = Math.max(0, totalAmt - paidAmt);
     b.update(doc(col('products'), p.id), { stock: increment(q), avgCost: avg, updatedAt: ts() });
     b.set(doc(col('stockIns')), {
       productId: p.id, qty: q, unitCost: uc, dayKey: dk, createdAt: ts(),
       supplierId: (supInfo && supInfo.supplierId) || '', total: totalAmt, paid: paidAmt
     });
-    if (supInfo && supInfo.supplierId) {
+    if (!hasSup && totalAmt > 0) {
+      b.set(doc(col('daily'), dk), { dayKey: dk, cashOut: increment(totalAmt), updatedAt: ts() }, { merge: true });
+    }
+    if (hasSup) {
       if (dueAmt > 0) b.update(doc(col('suppliers'), supInfo.supplierId), { balance: increment(dueAmt), updatedAt: ts() });
       if (paidAmt > 0) {
         b.set(doc(col('supplierPayments')), { supplierId: supInfo.supplierId, amount: paidAmt, dayKey: dk, createdAt: ts(), status: 'active' });
@@ -389,8 +431,10 @@ const DB_API = {
     return b.commit();
   },
   cancel(sl) {
+    if (sl.hasReturn || (sl.retQ && Object.keys(sl.retQ).length)) throw new Error('has-returns');
     const b = writeBatch(db);
-    const targetDay = (S.day.closed && sl.dayKey === dayKey()) ? dayKey() : (sl.dayKey || dayKey());
+    const billDayClosed = lastDaily.some(d => d.id === sl.dayKey && d.closed);
+    const targetDay = billDayClosed ? dayKey() : (sl.dayKey || dayKey());
     b.update(doc(col('sales'), sl.id), { status: 'cancelled', cancelledAt: ts() });
     const m = {};
     (sl.items || []).forEach(i => { const a = m[i.productId] || (m[i.productId] = { q: 0, t: i.type }); a.q += i.qty; });
@@ -412,7 +456,24 @@ const DB_API = {
     return b.commit();
   },
   async returnSale(sl, retItems) {
+    const fresh = await getDoc(doc(col('sales'), sl.id));
+    if (!fresh.exists()) throw new Error('sale-missing');
+    const cur = fresh.data();
+    if (cur.status === 'cancelled') throw new Error('sale-cancelled');
+    const sold = {};
+    (cur.items || []).forEach(i => { sold[i.productId] = (sold[i.productId] || 0) + (+i.qty || 0); });
+    const done = cur.retQ || {}, take = {};
+    retItems = retItems.map(r => {
+      const k = r.productId, free = (sold[k] || 0) - (done[k] || 0) - (take[k] || 0);
+      const q = Math.max(0, Math.min(+r.qty || 0, free));
+      take[k] = (take[k] || 0) + q;
+      return Object.assign({}, r, { qty: q });
+    }).filter(r => r.qty > 0);
+    if (!retItems.length) throw new Error('already-returned');
     const b = writeBatch(db);
+    const retUpd = { hasReturn: true, updatedAt: ts() };
+    Object.keys(take).forEach(k => { if (take[k] > 0) retUpd['retQ.' + k] = increment(take[k]); });
+    b.update(doc(col('sales'), sl.id), retUpd);
     const tk = dayKey();
     const isClosedBillDay = lastDaily.some(d => d.id === sl.dayKey && d.closed);
     const accDay = isClosedBillDay ? tk : (sl.dayKey || tk);
@@ -487,11 +548,11 @@ const DB_API = {
   },
 
   async buildBackup() {
-    const names = ['products', 'sales', 'customers', 'payments', 'expenses', 'suppliers', 'supplierPayments', 'daily', 'wallets', 'walletTx', 'stockIns', 'settings', 'returns'];
+    const names = ['products', 'sales', 'customers', 'payments', 'expenses', 'suppliers', 'supplierPayments', 'daily', 'wallets', 'walletTx', 'stockIns', 'settings', 'returns', 'photos'];
     const out = { backupAt: new Date().toISOString(), shopId: shopId(), collections: {} };
     for (const n of names) {
       const snap = await getDocs(col(n));
-      out.collections[n] = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      out.collections[n] = snap.docs.map(d => Object.assign({ id: d.id }, toJ(d.data())));
     }
     const cSnap = await getDoc(doc(col('meta'), 'counter'));
     out.counterBillNo = cSnap.exists() ? (cSnap.data().billNo || 0) : 0;
@@ -503,7 +564,7 @@ const DB_API = {
     Object.keys(payload.collections).forEach(n => {
       const rows = payload.collections[n] || [];
       rows.forEach(r => {
-        const copy = Object.assign({}, r);
+        const copy = fromJ(Object.assign({}, r));
         const id = copy.id || doc(col(n)).id;
         delete copy.id;
         ops.push({ type: 'set', ref: doc(col(n), id), data: copy, merge: true });
@@ -520,17 +581,33 @@ const DB_API = {
   async deleteAllShopData() {
     const u = auth.currentUser;
     if (!u || S.role !== 'owner') throw new Error('owner-only');
-    const names = ['products', 'photos', 'sales', 'customers', 'payments', 'expenses', 'suppliers', 'supplierPayments', 'daily', 'wallets', 'walletTx', 'stockIns', 'settings', 'returns', 'members'];
-    const ops = [];
+    const sid = shopId();
+    const names = ['products', 'photos', 'sales', 'customers', 'payments', 'expenses', 'suppliers', 'supplierPayments', 'daily', 'wallets', 'walletTx', 'stockIns', 'settings', 'returns', 'members', 'profile', 'invites', 'meta'];
+    const ops = [], staffIds = [], codes = [];
     for (const n of names) {
       const snap = await getDocs(col(n));
-      snap.docs.forEach(d => ops.push({ type: 'delete', ref: d.ref }));
+      snap.docs.forEach(d => {
+        ops.push({ type: 'delete', ref: d.ref });
+        if (n === 'members' && d.id !== u.uid) staffIds.push(d.id);
+        if (n === 'invites') codes.push(d.id);
+      });
     }
-    ops.push({ type: 'delete', ref: doc(col('meta'), 'counter') });
+    for (const c of codes) { try { await deleteDoc(doc(db, 'invites', c)); } catch (e) {} }
+    for (const id of staffIds) { try { await deleteDoc(doc(db, 'userShops', id)); } catch (e) {} }
     ops.push({ type: 'delete', ref: doc(db, 'userShops', u.uid) });
     await commitBatches(ops);
-    await deleteDoc(doc(db, 'shops', shopId()));
-    try { await deleteUser(u); } catch (e) {}
+    try { await deleteDoc(doc(db, 'shops', sid)); } catch (e) {}
+    let removed = true;
+    try { await deleteUser(u); } catch (e) { removed = false; }
+    if (!removed) {
+      try { await signOut(auth); } catch (e) {}
+      alert(msgOf({
+        ur: 'دکان کا ڈیٹا مٹ گیا مگر لاگ ان اکاؤنٹ نہیں ہٹا۔ دوبارہ لاگ ان کر کے پھر کوشش کریں۔',
+        rm: 'Dukan ka data mit gaya lekin login account nahi hata. Dobara login kar ke phir try karein.',
+        en: 'Shop data was deleted but the login account could not be removed. Log in again and retry.'
+      }));
+    }
+    return removed;
   }
 };
 

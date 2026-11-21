@@ -46,7 +46,14 @@ const card=(l,v)=>`<div class=card><span>${l}</span><b>${v}</b></div>`;
 const sub=()=>S.cart.reduce((a,x)=>a+Math.round(x.pr*x.q),0);
 const total=()=>Math.max(0,sub()-Math.round(+S.disc||0));
 const hdr=()=>`<div class=top><b>${clean(S.shop)||'Munafa Book'}</b><span>${S.day.closed?`<span class=tag>${t().dayClosed}</span>`:''}${isOwner()?`<button class=ib onclick="toggleHide()" aria-label="hide">${ic(S.hide?'eyeoff':'eye')}</button>`:''}<button class=ib onclick="lockNow()" aria-label="lock">${ic('lock')}</button></span></div>`;
-const clean=v=>String(v||'').replace(/[<>"'`]/g,'').trim();
+const clean=v=>String(v||'').replace(/'/g,'’').replace(/"/g,'”').replace(/[<>`\\]/g,'').trim();
+const MSG={
+  dayClosed:{ur:'آج کا دن بند ہو چکا ہے۔ پھر بھی بل بنانا ہے؟',rm:'Aaj ka din band ho chuka hai. Phir bhi bill banana hai?',en:'Today is already closed. Save the bill anyway?'},
+  allRet:{ur:'اس بل کا سارا سامان واپس ہو چکا ہے',rm:'Is bill ka sara saman wapas ho chuka hai',en:'Everything on this bill is already returned'},
+  hasRet:{ur:'اس بل پر واپسی ہو چکی ہے، اس لیے کینسل نہیں ہو سکتا',rm:'Is bill par wapsi ho chuki hai, is liye cancel nahi ho sakta',en:'This bill has returns, so it cannot be cancelled'},
+  left:{ur:'باقی',rm:'baqi',en:'left'}
+};
+const mm=k=>MSG[k][S.lang]||MSG[k].rm;
 const gv=id=>($('#'+id)||{}).value||'';
 
 function applyTheme(){
@@ -56,12 +63,12 @@ function applyTheme(){
 
 function chips(){
   const cs=[...new Set(P.map(p=>p.cat).filter(Boolean))];
-  return `<div class=chips><button class="chip ${S.cat?'':'on'}" onclick="setCat('')">${t().all}</button>${cs.map(c=>`<button class="chip ${S.cat===c?'on':''}" onclick="setCat('${clean(c)}')">${clean(c)}</button>`).join('')}</div>`;
+  return `<div class=chips><button class="chip ${S.cat?'':'on'}" onclick="setCat('')">${t().all}</button>${cs.map(c=>`<button class="chip ${S.cat===clean(c)?'on':''}" onclick="setCat('${clean(c)}')">${clean(c)}</button>`).join('')}</div>`;
 }
 
 function plist(sale){
   if(S.loading)return `<p>${t().wait}</p>`;
-  const q=S.q.toLowerCase(),a=P.filter(p=>(p.n.toLowerCase().includes(q)||(p.bc&&p.bc===S.q))&&(!S.cat||p.cat===S.cat));
+  const q=S.q.toLowerCase(),a=P.filter(p=>(p.n.toLowerCase().includes(q)||(p.bc&&p.bc===S.q))&&(!S.cat||clean(p.cat)===S.cat));
   if(!a.length)return `<p>${t().empty}</p>`;
   return a.slice(0,60).map(p=>{
     const tag=p.com?`<span class=tag>${t().comTag}</span>`:p.svc?`<span class=tag>${t().svc}</span>`:(p.s<=0?`<span class="tag red">${t().out}</span>`:`<span class=tag>${p.s}</span>`);
@@ -113,6 +120,12 @@ document.addEventListener('visibilitychange',()=>{
   else if(hiddenAt&&Date.now()-hiddenAt>180000&&localStorage.pinHash){S.buf='';S.lock='enter';render()}
 });
 
+function udList(){
+  const x=t(),q=(S.q||'').toLowerCase(),list=C.filter(c=>!q||(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q));
+  return list.length?list.map(c=>`<button class=row onclick="openCust('${c.id}')"><span>${clean(c.name)}<br><small>${clean(c.phone||'')}</small></span><b>${fmt(c.balance||0)}</b></button>`).join(''):`<p>${x.empty}</p>`;
+}
+function setUq(v){S.q=v;if($('#ulist'))$('#ulist').innerHTML=udList()}
+
 const V={
 today(){
   const d=S.day,x=t(),low=P.filter(p=>!p.svc&&!p.com&&p.s<=p.m),tp=[...P].sort((a,b)=>b.sold-a.sold).slice(0,5).filter(p=>p.sold>0);
@@ -129,15 +142,15 @@ today(){
 },
 sale(){
   const x=t(),e=S.cart.length?'':'disabled';
-  return `<h1>${x.sale}</h1><div class=seg><input placeholder="${x.search}" value="${clean(S.q)}" oninput="setQ(this.value)" style="margin:0"><button class="btn alt" style="width:auto;padding:0 12px" onclick="startScan('sale')">${x.scan}</button></div>${chips()}<div id=list>${plist(1)}</div>
+  return `<h1>${x.sale}</h1><div class=seg><input id=qs placeholder="${x.search}" value="${clean(S.q)}" oninput="setQ(this.value)" style="margin:0"><button class="btn alt" style="width:auto;padding:0 12px" onclick="startScan('sale')">${x.scan}</button></div>${chips()}<div id=list>${plist(1)}</div>
   <h2>${x.cart}</h2><div id=cart>${cartHtml()}</div>
-  <input type=number inputmode=numeric placeholder="${x.disc}" value="${S.disc||''}" oninput="S.disc=+this.value||0;$('#tot').textContent=fmt(total())">
+  <input id=dsc type=number inputmode=numeric placeholder="${x.disc}" value="${S.disc||''}" oninput="S.disc=+this.value||0;$('#tot').textContent=fmt(total())">
   <div class=row><span>${x.total}</span><b id=tot>${fmt(total())}</b></div>
   <div class=seg><button class=btn onclick="payBtn(0)" ${e}>${x.payC}</button><button class="btn alt" onclick="payBtn(1)" ${e}>${x.payU}</button></div>`;
 },
 stock(){
   const x=t();
-  return `<h1>${x.stock}</h1><div class=seg><input placeholder="${x.search}" value="${clean(S.q)}" oninput="setQ(this.value)" style="margin:0"><button class="btn alt" style="width:auto;padding:0 12px" onclick="startScan('stock')">${x.scan}</button></div>${chips()}<div id=list>${plist(0)}</div>
+  return `<h1>${x.stock}</h1><div class=seg><input id=qs placeholder="${x.search}" value="${clean(S.q)}" oninput="setQ(this.value)" style="margin:0"><button class="btn alt" style="width:auto;padding:0 12px" onclick="startScan('stock')">${x.scan}</button></div>${chips()}<div id=list>${plist(0)}</div>
   ${isOwner()?`<button class=fab onclick="openAdd()" aria-label="${x.add}">${ic('plus')}</button>`:''}`;
 },
 acc(){
@@ -149,11 +162,11 @@ acc(){
   ${isOwner()?`<h2>${x.days}</h2>${D.length?D.map(r=>`<div class=row><span>${r[0]}<br><small>${fmt(r[1])}</small></span><b>${hid(r[2])}</b></div>`).join(''):`<p>${x.empty}</p>`}`:''}`;
 },
 udhaar(){
-  const x=t(),q=(S.q||'').toLowerCase(),list=C.filter(c=>!q||(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q));
+  const x=t();
   return `<h1>${x.ukhata}</h1>
-  <input placeholder="${x.searchCust}" value="${clean(S.q)}" oninput="S.q=this.value;render()">
+  <input id=qs placeholder="${x.searchCust}" value="${clean(S.q)}" oninput="setUq(this.value)">
   <div class=seg><button class="btn alt" onclick="openNewUd()">${x.newU}</button>${isOwner()?`<button class="btn alt" onclick="confirmMigrateUd()">${x.migrateUd}</button>`:''}</div>
-  <h2>${x.cust}</h2>${list.length?list.map(c=>`<button class=row onclick="openCust('${c.id}')"><span>${clean(c.name)}<br><small>${clean(c.phone||'')}</small></span><b>${fmt(c.balance||0)}</b></button>`).join(''):`<p>${x.empty}</p>`}`;
+  <h2>${x.cust}</h2><div id=ulist>${udList()}</div>`;
 },
 more(){
   const x=t();
@@ -182,9 +195,12 @@ function render(){
   document.documentElement.dir=S.lang==='ur'?'rtl':'ltr';
   document.documentElement.lang=S.lang==='ur'?'ur':'en';
   document.body.className=(S.lang||'')+(S.dark?' dark':'');
-  if(S.lock){$('#view').innerHTML=lockView();$('#nav').style.display='none';return}
+  if(S.lock){if(scanStream)stopScan();closeM();$('#view').innerHTML=lockView();$('#nav').style.display='none';return}
   $('#nav').style.display='flex';
+  const ae=document.activeElement,fid=(ae&&ae.id&&ae.closest&&ae.closest('#view'))?ae.id:'';
+  let fpos=null;try{if(fid)fpos=ae.selectionStart}catch(_){}
   $('#view').innerHTML=hdr()+(V[S.tab]||V.today)();
+  if(fid){const ne=document.getElementById(fid);if(ne&&ne.closest('#view')){ne.focus();try{if(fpos!=null)ne.setSelectionRange(fpos,fpos)}catch(_){}}}
   const x=t();
   $('#nav').innerHTML=['today','sale','stock','acc','more'].map(k=>`<button class="${S.tab===k||(k==='more'&&S.tab==='udhaar')?'on':''}" onclick="go('${k}')">${ic(k)}<span>${x[k]}</span></button>`).join('');
 }
@@ -301,6 +317,7 @@ async function finish(name,phone,customerId){
   try{
     if(typeof DB==='undefined')throw new Error('DB-missing');
     if(!S.noReady){toast(t().wait);return}
+    if(S.day.closed&&!confirm(mm('dayClosed')))return;
     const L=S.cart.map(x=>{const ty=x.p.com?'commission':x.p.svc?'service':'item';return{x:x,ty:ty,amt:Math.round(x.pr*x.q),cost:ty==='commission'?0:(+x.p.c||0)}});
     if(!L.length)return;
     if(L.some(l=>l.ty==='item'&&!canAddQty(l.x.p,l.x.q))){toast(t().warn);return}
@@ -425,7 +442,7 @@ function cats(){return `<datalist id=cl>${[...new Set(P.map(p=>p.cat))].map(c=>`
 function openAdd(){
   if(!isOwner())return;
   const x=t(),defMin=S.cfg.lowStockDefault||0;
-  modal(`<h1>${x.add}</h1><input id=an placeholder="${x.name}"><input id=ap type=number inputmode=decimal placeholder="${x.price}"><input id=aq type=number inputmode=decimal placeholder="${x.qty}"><input id=af type=file accept="image/*" capture=environment>
+  modal(`<h1>${x.add}</h1><input id=an placeholder="${x.name}"><input id=ap type=number inputmode=decimal placeholder="${x.price}"><input id=aq type=number inputmode=decimal placeholder="${x.qty}"><input id=af type=file accept="image/*">
   <button class="btn alt" onclick="$('#mf').style.display='block';this.remove()">${x.moreF}</button>
   <div id=mf style="display:none"><input id=ak list=cl placeholder="${x.cat}">${cats()}<input id=au placeholder="${x.unit}"><input id=ac type=number inputmode=decimal placeholder="${x.cost}"><input id=am2 type=number inputmode=numeric value="${defMin||''}" placeholder="${x.minStock}"><input id=ab placeholder="${x.barcode}"><select id=at><option value=item>${x.tItem}</option><option value=service>${x.svc}</option><option value=commission>${x.isCom}</option></select></div>
   <div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="addP()">${x.add}</button></div>`);
@@ -454,7 +471,7 @@ function openProd(id){
 function openEdit(id){
   if(!isOwner())return;
   const p=P.find(z=>z.id===id),x=t();
-  modal(`<h1>${x.edit}</h1><input id=an value="${clean(p.n)}"><input id=ak list=cl value="${clean(p.cat)}">${cats()}<input id=au value="${clean(p.unit)}" placeholder="${x.unit}"><input id=ap type=number inputmode=decimal value="${p.p}" placeholder="${x.price}"><input id=am2 type=number inputmode=numeric value="${p.m}" placeholder="${x.minStock}"><input id=ab value="${clean(p.bc)}" placeholder="${x.barcode}"><input id=af type=file accept="image/*" capture=environment>
+  modal(`<h1>${x.edit}</h1><input id=an value="${clean(p.n)}"><input id=ak list=cl value="${clean(p.cat)}">${cats()}<input id=au value="${clean(p.unit)}" placeholder="${x.unit}"><input id=ap type=number inputmode=decimal value="${p.p}" placeholder="${x.price}"><input id=am2 type=number inputmode=numeric value="${p.m}" placeholder="${x.minStock}"><input id=ab value="${clean(p.bc)}" placeholder="${x.barcode}"><input id=af type=file accept="image/*">
   <div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="editSave('${id}')">${x.ok}</button></div>`);
 }
 async function editSave(id){
@@ -503,11 +520,20 @@ function inSave(id){
   }catch(e){showErr(e)}
 }
 
+function retLeft(b){
+  const done=b.retQ||{},use={};
+  return (b.items||[]).map(i=>{
+    const tot=b.items.filter(z=>z.productId===i.productId).reduce((a,z)=>a+(+z.qty||0),0);
+    const q=Math.max(0,Math.min(+i.qty||0,tot-(done[i.productId]||0)-(use[i.productId]||0)));
+    use[i.productId]=(use[i.productId]||0)+q;
+    return q;
+  });
+}
 function openBill(id){
   const b=B.find(z=>z.id===id);if(!b)return;
   const x=t();
   modal(`<h1>#${b.billNo}${b.status==='cancelled'?' - '+x.bCancelled:''}</h1><p>${b.dayKey||''}</p>${b.customerName?`<p>${clean(b.customerName)}</p>`:''}${b.items.map(i=>`<div class=row><span>${clean(i.name)} x${i.qty}</span><b>${fmt(i.amount)}</b></div>`).join('')}${b.discount?`<div class=row><span>${x.disc}</span><b>-${fmt(b.discount)}</b></div>`:''}<div class=row><span>${x.total}</span><b>${fmt(b.total)}</b></div>
-  ${b.status==='active'&&isOwner()?`<div class=seg><button class="btn alt" onclick="openReturnModal('${b.id}')">${x.returnItem}</button><button class=btn onclick="askCancel('${b.id}')">${x.bCancel}</button></div>`:''}
+  ${b.status==='active'&&isOwner()?`${b.hasReturn?`<div class=note>${mm('hasRet')}</div>`:''}<div class=seg>${retLeft(b).some(q=>q>0)?`<button class="btn alt" onclick="openReturnModal('${b.id}')">${x.returnItem}</button>`:''}${b.hasReturn?'':`<button class=btn onclick="askCancel('${b.id}')">${x.bCancel}</button>`}</div>`:''}
   <button class="btn alt" onclick="closeM()">${x.done}</button>`);
 }
 function askCancel(id){
@@ -527,15 +553,16 @@ function doCancel(id){
 function openReturnModal(id){
   if(!isOwner())return;
   const b=B.find(z=>z.id===id);if(!b)return;
-  const x=t();
-  modal(`<h1>${x.returnTitle} #${b.billNo}</h1>${b.items.map((i,idx)=>`<div class=row><span>${clean(i.name)} (${x.qty}: ${i.qty})</span><input id="rq${idx}" type=number min=0 max=${i.qty} value=0 style="width:84px;margin:0"></div>`).join('')}<div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="saveReturn('${id}')">${x.ok}</button></div>`);
+  const x=t(),lf=retLeft(b);
+  if(!lf.some(q=>q>0)){toast(mm('allRet'));return}
+  modal(`<h1>${x.returnTitle} #${b.billNo}</h1>${b.items.map((i,idx)=>`<div class=row><span>${clean(i.name)} (${x.qty}: ${i.qty}, ${mm('left')}: ${lf[idx]})</span><input id="rq${idx}" type=number min=0 max=${lf[idx]} value=0 style="width:84px;margin:0"></div>`).join('')}<div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="saveReturn('${id}')">${x.ok}</button></div>`);
 }
 async function saveReturn(id){
   if(!isOwner()||S.busy)return;
   const b=B.find(z=>z.id===id);if(!b||b.status!=='active')return;
-  const retItems=[];
+  const retItems=[],lf=retLeft(b);
   b.items.forEach((it,idx)=>{
-    const rq=Math.min(it.qty,Math.max(0,Math.round(+gv('rq'+idx)||0)));
+    const rq=Math.min(lf[idx],Math.max(0,Math.round(+gv('rq'+idx)||0)));
     if(rq>0)retItems.push({productId:it.productId,name:it.name,qty:rq,price:it.price,costAtSale:it.costAtSale||0,type:it.type||'item'});
   });
   if(!retItems.length){toast(t().qtyBad);return}
@@ -722,7 +749,7 @@ async function openStaffModal(){
   modal(`<h1>${x.staff}</h1><div class=note>${x.costNote}</div><button class=btn onclick="makeStaffCode()">${x.genInvite}</button><div id=invout style="margin:10px 0"></div><div id=memlist></div><button class="btn alt" style="margin-top:8px" onclick="closeM()">${x.done}</button>`);
   try{
     const ms=await DB.listMembers();
-    if($('#memlist'))$('#memlist').innerHTML=ms.map(m=>`<div class=row><span>${clean(m.name||m.id)} <small>(${m.role})</small></span><button class="btn alt" style="width:auto;padding:0 10px" onclick="flipMem('${m.id}',${m.active===false?true:false})">${m.active===false?'OFF':'ON'}</button></div>`).join('');
+    if($('#memlist'))$('#memlist').innerHTML=ms.map(m=>`<div class=row><span>${clean(m.name||m.id)} <small>(${m.role})</small></span>${m.role==='owner'?'':`<button class="btn alt" style="width:auto;padding:0 10px" onclick="flipMem('${m.id}',${m.active===false?true:false})">${m.active===false?'OFF':'ON'}</button>`}</div>`).join('');
   }catch(_){}
 }
 async function makeStaffCode(){

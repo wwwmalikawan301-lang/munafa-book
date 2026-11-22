@@ -539,6 +539,13 @@ const DB_API = {
       dayKey: dk, closed: true, closedAt: ts(), countedCash, cashDiff: diff, closeNote: note || '', updatedAt: ts()
     }, { merge: true });
   },
+  async reopenDay() {
+    const dk = dayKey();
+    await setDoc(doc(col('daily'), dk), { dayKey: dk, closed: false, updatedAt: ts() }, { merge: true });
+  },
+  async setShopName(name) {
+    await setDoc(doc(db, 'shops', shopId(), 'profile', 'main'), { name: name, updatedAt: ts() }, { merge: true });
+  },
   async saveSettings(cfg) {
     await setDoc(doc(col('settings'), 'main'), Object.assign({}, cfg, { updatedAt: ts() }), { merge: true });
   },

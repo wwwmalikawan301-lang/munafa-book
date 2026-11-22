@@ -14,7 +14,7 @@ const S={
   dark:localStorage.dark==='1',
   tab:'today',q:'',cat:'',cart:[],disc:0,saving:false,no:1,noReady:false,
   buf:'',tmp:'',lock:localStorage.pinHash?'enter':'set1',
-  pinFail:0,pinUntil:0,
+  pinFail:+localStorage.pinFail||0,pinUntil:+localStorage.pinUntil||0,
   day:{sales:0,cash:0,cashOut:0,ud:0,com:0,cost:0,exp:0,bills:0,closed:false,countedCash:0},
   cfg:{dayStart:'00:00',allowNegativeStock:false,billFooter:'',lowStockDefault:5}
 };
@@ -51,7 +51,14 @@ const MSG={
   dayClosed:{ur:'آج کا دن بند ہو چکا ہے۔ پھر بھی بل بنانا ہے؟',rm:'Aaj ka din band ho chuka hai. Phir bhi bill banana hai?',en:'Today is already closed. Save the bill anyway?'},
   allRet:{ur:'اس بل کا سارا سامان واپس ہو چکا ہے',rm:'Is bill ka sara saman wapas ho chuka hai',en:'Everything on this bill is already returned'},
   hasRet:{ur:'اس بل پر واپسی ہو چکی ہے، اس لیے کینسل نہیں ہو سکتا',rm:'Is bill par wapsi ho chuki hai, is liye cancel nahi ho sakta',en:'This bill has returns, so it cannot be cancelled'},
-  left:{ur:'باقی',rm:'baqi',en:'left'}
+  left:{ur:'باقی',rm:'baqi',en:'left'},
+  reopen:{ur:'دن دوبارہ کھولیں',rm:'Din dobara kholen',en:'Reopen day'},
+  reopenAsk:{ur:'کیا آج کا دن دوبارہ کھولنا ہے؟',rm:'Kya aaj ka din dobara kholna hai?',en:'Reopen today?'},
+  reopened:{ur:'دن دوبارہ کھل گیا',rm:'Din dobara khul gaya',en:'Day reopened'},
+  closedAsk:{ur:'آج کا دن بند ہے۔ پھر بھی لکھنا ہے؟',rm:'Aaj ka din band hai. Phir bhi likhna hai?',en:'Today is closed. Save anyway?'},
+  badTime:{ur:'وقت 00:00 سے 23:59 کے انداز میں لکھیں (جیسے 06:00)',rm:'Time 00:00 se 23:59 ke andaz mein likhein (jaise 06:00)',en:'Use a time like 06:00 (00:00 to 23:59)'},
+  copy:{ur:'کاپی',rm:'Copy',en:'Copy'},
+  copied:{ur:'کاپی ہو گیا',rm:'Copy ho gaya',en:'Copied'}
 };
 const mm=k=>MSG[k][S.lang]||MSG[k].rm;
 const gv=id=>($('#'+id)||{}).value||'';
@@ -109,8 +116,10 @@ async function pin(k){
     }else if(S.lock==='set1'){S.tmp=h;S.lock='set2'}
     else{if(h===S.tmp){localStorage.pinHash=h;delete localStorage.pin;S.lock='';S.pinFail=0}else{toast(t().pinBad);S.lock='set1'}}
   }
+  pinSave();
   render();
 }
+function pinSave(){localStorage.pinFail=S.pinFail;localStorage.pinUntil=S.pinUntil}
 function lockNow(){S.buf='';S.lock=localStorage.pinHash?'enter':'set1';render()}
 function changePin(){if(!isOwner())return;S.buf='';S.lock='set1';render()}
 
@@ -360,6 +369,7 @@ function rcText(R){
 function waLink(ph,text){
   let d=(ph||'').replace(/\D/g,'');
   if(d.startsWith('0'))d='92'+d.slice(1);
+  else if(d.length===10&&d.startsWith('3'))d='92'+d;
   return 'https://wa.me/'+d+'?text='+encodeURIComponent(text);
 }
 function sendWa(){window.open(waLink(S.rc.phone,rcText(S.rc)),'_blank')}
@@ -603,9 +613,10 @@ async function runMonthRep(){
     const gross=sales-cost,net=gross-exp;
     const mx=Math.max(...rows.map(r=>+r.sales||0),1);
     const txt=`*${S.shop}* - ${x.monthRep} (${ym})\n${x.sales}: ${fmt(sales)}\n${x.profit}: ${fmt(gross)}\n${x.exp}: ${fmt(exp)}\n${x.net}: ${fmt(net)}\n${x.bills}: ${bills}`;
+    S.repTxt=txt;
     $('#mres').innerHTML=`<div class=grid>${card(x.sales,fmt(sales))}${card(x.profit,hid(gross))}${card(x.exp,fmt(exp))}${card(x.net,hid(net))}${card(x.bills,bills)}${card(x.days,rows.length)}</div>
     ${rows.length?`<h2>${x.month}</h2><div class=bars>${rows.map(r=>`<i style="height:${Math.max(4,Math.round((+r.sales||0)/mx*100))}%"></i>`).join('')}</div>`:''}
-    <button class=btn style="margin-top:10px" onclick="window.open(waLink('',${JSON.stringify(txt)}),'_blank')">${x.shareRep}</button>`;
+    <button class=btn style="margin-top:10px" onclick="shareRep()">${x.shareRep}</button>`;
   }catch(e){showErr(e)}
 }
 
@@ -627,6 +638,7 @@ async function saveExp(){
   if(!isOwner()||S.busy)return;
   const a=Math.round(+gv('ea')||0),cat=clean(gv('ec'))||'Other',note=clean(gv('en'));
   if(!(a>0)){toast(t().qtyBad);return}
+  if(S.day.closed&&!confirm(mm('closedAsk')))return;
   S.busy=true;
   try{await DB.addExpense(a,cat,note);toast(t().expSaved);openExpModal()}
   catch(e){showErr(e)}finally{S.busy=false}
@@ -647,6 +659,7 @@ function openCloseDay(){
   <input id=ccash type=number inputmode=numeric value="${d.countedCash||''}" placeholder="${x.countedCash}" oninput="calcDiff(${est})">
   <div class=row><span>${x.diffCash}</span><b id=cdiff>${fmt(0)}</b></div>
   <input id=cnote placeholder="${x.closeNote}">
+  ${d.closed?`<button class="btn alt" style="margin-bottom:8px" onclick="reopenDay()">${mm('reopen')}</button>`:''}
   <div class=seg><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="doCloseDay(${est})">${x.closeDay}</button></div>`);
 }
 function calcDiff(est){
@@ -757,7 +770,7 @@ async function makeStaffCode(){
   S.busy=true;
   try{
     const code=await DB.createInvite();
-    if($('#invout'))$('#invout').innerHTML=`<div class=row><span>Invite Code</span><b>${code}</b></div>`;
+    if($('#invout'))$('#invout').innerHTML=`<div class=row><span>Invite Code</span><b>${code}</b></div><div class=seg><button class="btn alt" onclick="copyCode('${code}')">${mm('copy')}</button><button class="btn alt" onclick="shareCode('${code}')">WhatsApp</button></div>`;
   }catch(e){showErr(e)}finally{S.busy=false}
 }
 async function flipMem(mid,act){
@@ -785,6 +798,7 @@ async function saveSettings(){
   S.busy=true;
   try{
     const ds=(gv('sds')||'00:00').trim()||'00:00';
+    if(!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(ds)){toast(mm('badTime'),3500);return}
     const ld=Math.max(0,Math.round(+gv('sld')||0));
     const bf=clean(gv('sbf'));
     const neg=!!$('#sneg')?.checked;
@@ -858,7 +872,7 @@ function openDeleteShopModal(){
 }
 async function confirmDeleteShop(){
   if(!isOwner()||S.busy)return;
-  if(gv('delconf').trim()!==S.shop.trim()){toast(t().sure);return}
+  if(clean(gv('delconf'))!==clean(S.shop)){toast(t().sure);return}
   S.busy=true;
   try{
     await DB.deleteAllShopData();
@@ -871,8 +885,26 @@ function openDiag(){
   const r=(a,b)=>`<div class=row><span>${a}</span><b>${b}</b></div>`;
   modal(`<h1>${x.diag}</h1>${r(x.dLogin,yn(u))}${r(x.dUid,u?u.slice(0,6):'-')}${r(x.dItems,P.length)}${r(x.dDb,yn(typeof DB!=='undefined'))}${r(x.dListen,DIAG.listen+' / '+DIAG.snap)}${r(x.dNet,yn(navigator.onLine))}${r(x.dErr,clean(DIAG.err)||'-')}<button class="btn alt" onclick="closeM()">${x.done}</button>`);
 }
-function setShop(){if(!isOwner())return;const v=prompt(t().shop,S.shop);if(v&&v.trim()){S.shop=v.trim();localStorage.shop=S.shop;render()}}
+async function setShop(){
+  if(!isOwner())return;
+  const v=prompt(t().shop,S.shop),n=clean(v);
+  if(!n)return;
+  S.shop=n;localStorage.shop=n;render();
+  try{if(DB.setShopName)await DB.setShopName(n)}catch(e){showErr(e)}
+}
 function setLang(l){S.lang=l;localStorage.lang=l;render()}
 function toggleHide(){if(!isOwner())return;S.hide=!S.hide;localStorage.hide=S.hide?'1':'0';render()}
+function shareRep(){window.open(waLink('',S.repTxt||''),'_blank')}
+function copyCode(c){
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(c).then(()=>toast(mm('copied'))).catch(()=>toast(c,6000));
+  else toast(c,6000);
+}
+function shareCode(c){window.open(waLink('',S.shop+' - Munafa Book invite code: '+c),'_blank')}
+async function reopenDay(){
+  if(!isOwner()||S.busy||!confirm(mm('reopenAsk')))return;
+  S.busy=true;
+  try{if(DB.reopenDay)await DB.reopenDay();closeM();toast(mm('reopened'))}
+  catch(e){showErr(e)}finally{S.busy=false}
+}
 applyTheme();
 render();

@@ -58,8 +58,16 @@ const MSG={
   closedAsk:{ur:'آج کا دن بند ہے۔ پھر بھی لکھنا ہے؟',rm:'Aaj ka din band hai. Phir bhi likhna hai?',en:'Today is closed. Save anyway?'},
   badTime:{ur:'وقت 00:00 سے 23:59 کے انداز میں لکھیں (جیسے 06:00)',rm:'Time 00:00 se 23:59 ke andaz mein likhein (jaise 06:00)',en:'Use a time like 06:00 (00:00 to 23:59)'},
   copy:{ur:'کاپی',rm:'Copy',en:'Copy'},
-  copied:{ur:'کاپی ہو گیا',rm:'Copy ho gaya',en:'Copied'}
+  copied:{ur:'کاپی ہو گیا',rm:'Copy ho gaya',en:'Copied'},
+  cam:{ur:'کیمرے سے تصویر',rm:'Camera se photo',en:'Take photo'},
+  gal:{ur:'گیلری سے چنیں',rm:'Gallery se chunen',en:'From gallery'}
 };
+let pickedPhoto=null;
+function picked(el){
+  pickedPhoto=(el.files&&el.files[0])||null;
+  const b=$('#pst');
+  if(b)b.innerHTML=pickedPhoto?`<img src="${URL.createObjectURL(pickedPhoto)}" alt="" style="height:64px;border-radius:8px;margin:6px 0">`:'';
+}
 const mm=k=>MSG[k][S.lang]||MSG[k].rm;
 const gv=id=>($('#'+id)||{}).value||'';
 
@@ -217,7 +225,7 @@ let tmr;
 function toast(m,ms){const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(tmr);tmr=setTimeout(()=>e.style.display='none',ms||2200)}
 function errCode(e){return String((e&&(e.code||e.message))||e||'unknown').slice(0,80)}
 function showErr(e){const c=errCode(e);DIAG.err=c;toast(t().authErr+' ('+c+')',7000)}
-function modal(h){$('#modal').innerHTML='<div>'+h+'</div>';$('#modal').style.display='block'}
+function modal(h){pickedPhoto=null;$('#modal').innerHTML='<div>'+h+'</div>';$('#modal').style.display='block'}
 function closeM(){$('#modal').style.display='none'}
 function go(k){S.tab=k;S.q='';S.cat='';render();scrollTo(0,0)}
 function setQ(v){S.q=v;if($('#list'))$('#list').innerHTML=plist(S.tab==='sale')}
@@ -452,7 +460,7 @@ function cats(){return `<datalist id=cl>${[...new Set(P.map(p=>p.cat))].map(c=>`
 function openAdd(){
   if(!isOwner())return;
   const x=t(),defMin=S.cfg.lowStockDefault||0;
-  modal(`<h1>${x.add}</h1><input id=an placeholder="${x.name}"><input id=ap type=number inputmode=decimal placeholder="${x.price}"><input id=aq type=number inputmode=decimal placeholder="${x.qty}"><input id=af type=file accept="image/*">
+  modal(`<h1>${x.add}</h1><input id=an placeholder="${x.name}"><input id=ap type=number inputmode=decimal placeholder="${x.price}"><input id=aq type=number inputmode=decimal placeholder="${x.qty}"><div class=seg><button class="btn alt" onclick="$('#afc').click()">${mm('cam')}</button><button class="btn alt" onclick="$('#af').click()">${mm('gal')}</button></div><div id=pst></div><input id=afc type=file accept="image/*" capture=environment hidden onchange="picked(this)"><input id=af type=file accept="image/*" hidden onchange="picked(this)">
   <button class="btn alt" onclick="$('#mf').style.display='block';this.remove()">${x.moreF}</button>
   <div id=mf style="display:none"><input id=ak list=cl placeholder="${x.cat}">${cats()}<input id=au placeholder="${x.unit}"><input id=ac type=number inputmode=decimal placeholder="${x.cost}"><input id=am2 type=number inputmode=numeric value="${defMin||''}" placeholder="${x.minStock}"><input id=ab placeholder="${x.barcode}"><select id=at><option value=item>${x.tItem}</option><option value=service>${x.svc}</option><option value=commission>${x.isCom}</option></select></div>
   <div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="addP()">${x.add}</button></div>`);
@@ -463,8 +471,8 @@ async function addP(){
   if(!n||(tp!=='commission'&&!(p>0))){toast(t().name+' / '+t().price);return}
   S.busy=true;
   try{
-    const f=$('#af').files[0];
-    const ph=f?await Promise.race([shrink(f),new Promise(r=>setTimeout(()=>r({}),3000))]):{};
+    const f=pickedPhoto;
+    const ph=f?await Promise.race([shrink(f),new Promise(r=>setTimeout(()=>r({}),8000))]):{};
     const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:tp==='commission'?0:p,cost:Math.max(0,+gv('ac')||0),stock:tp==='item'?Math.max(0,+gv('aq')||0):0,minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab')),type:tp,thumb:ph.th||'',full:ph.full||''};
     const pr=DB.add(o);closeM();toast(t().added);pr.catch(showErr);
   }catch(e){showErr(e)}finally{S.busy=false}
@@ -481,7 +489,7 @@ function openProd(id){
 function openEdit(id){
   if(!isOwner())return;
   const p=P.find(z=>z.id===id),x=t();
-  modal(`<h1>${x.edit}</h1><input id=an value="${clean(p.n)}"><input id=ak list=cl value="${clean(p.cat)}">${cats()}<input id=au value="${clean(p.unit)}" placeholder="${x.unit}"><input id=ap type=number inputmode=decimal value="${p.p}" placeholder="${x.price}"><input id=am2 type=number inputmode=numeric value="${p.m}" placeholder="${x.minStock}"><input id=ab value="${clean(p.bc)}" placeholder="${x.barcode}"><input id=af type=file accept="image/*">
+  modal(`<h1>${x.edit}</h1><input id=an value="${clean(p.n)}"><input id=ak list=cl value="${clean(p.cat)}">${cats()}<input id=au value="${clean(p.unit)}" placeholder="${x.unit}"><input id=ap type=number inputmode=decimal value="${p.p}" placeholder="${x.price}"><input id=am2 type=number inputmode=numeric value="${p.m}" placeholder="${x.minStock}"><input id=ab value="${clean(p.bc)}" placeholder="${x.barcode}"><div class=seg><button class="btn alt" onclick="$('#afc').click()">${mm('cam')}</button><button class="btn alt" onclick="$('#af').click()">${mm('gal')}</button></div><div id=pst></div><input id=afc type=file accept="image/*" capture=environment hidden onchange="picked(this)"><input id=af type=file accept="image/*" hidden onchange="picked(this)">
   <div class=seg style="margin-top:8px"><button class="btn alt" onclick="closeM()">${x.cancel}</button><button class=btn onclick="editSave('${id}')">${x.ok}</button></div>`);
 }
 async function editSave(id){
@@ -489,8 +497,8 @@ async function editSave(id){
   const n=clean(gv('an'));if(!n){toast(t().name);return}
   S.busy=true;
   try{
-    const f=$('#af').files[0];
-    const ph=f?await Promise.race([shrink(f),new Promise(r=>setTimeout(()=>r({}),3000))]):{};
+    const f=pickedPhoto;
+    const ph=f?await Promise.race([shrink(f),new Promise(r=>setTimeout(()=>r({}),8000))]):{};
     const o={name:n,category:clean(gv('ak'))||'General',unit:clean(gv('au')),salePrice:Math.max(0,+gv('ap')||0),minStock:Math.max(0,+gv('am2')||0),barcode:clean(gv('ab'))};
     if(ph.th){o.thumb=ph.th;o.full=ph.full}
     const pr=DB.edit(id,o);closeM();toast(t().updated);pr.catch(showErr);
